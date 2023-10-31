@@ -3327,9 +3327,17 @@ static struct ggml_cgraph * llm_build_llama(
             struct ggml_tensor * Q = ggml_permute(ctx0, Qcur, 0, 2, 1, 3);
             offload_func_kq(Q);
             ggml_set_name(Q, "Q");
+            struct ggml_tensor *print_k = ggml_view_2d(ctx0, kv_self.k,
+                                                       n_embd_gqa, n_kv,
+                                                       ggml_element_size(kv_self.k) * n_embd_gqa,
+                                                       ggml_element_size(kv_self.k) * n_embd_gqa * n_ctx * il);
+            if (il == 0) {
+              ggml_tensor *result = ggml_print(ctx0, print_k);
+              ggml_set_name(result, "print_k");
+              ggml_build_forward_expand(gf, result);
+            }
 
-            struct ggml_tensor * K =
-                ggml_view_3d(ctx0, kv_self.k,
+            ggml_tensor* K=ggml_view_3d(ctx0, kv_self.k,
                         n_embd_head, n_kv, n_head_kv,
                         ggml_element_size(kv_self.k)*n_embd_gqa,
                         ggml_element_size(kv_self.k)*n_embd_head,

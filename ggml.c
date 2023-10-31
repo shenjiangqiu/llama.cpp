@@ -4474,6 +4474,17 @@ struct ggml_tensor * ggml_view_2d(
     return result;
 }
 
+struct ggml_tensor *ggml_print(
+    struct ggml_context * ctx,
+    
+    struct ggml_tensor *a)
+{
+    struct ggml_tensor * result = ggml_view_tensor(ctx,a);
+    result->src[0] = a;
+    result->op = GGML_OP_PRINT;
+    return result;
+}
+
 // ggml_view_3d
 
 struct ggml_tensor * ggml_view_3d(
@@ -14362,6 +14373,58 @@ static void ggml_compute_forward_cross_entropy_loss_back(
             } break;
     }
 }
+static void ggml_compute_forward_print_f32(
+            const struct ggml_compute_params * params,
+        const struct ggml_tensor * src0,
+        struct ggml_tensor * dst
+){
+    printf("tensor: %s\n", dst->name);
+    printf("f32");
+    float * data = (float *) dst->data;
+}
+static void  ggml_compute_forward_print_f16(
+            const struct ggml_compute_params * params,
+        const struct ggml_tensor * src0,
+        struct ggml_tensor * dst
+){
+    printf("tensor: %s\n", dst->name);
+    printf("f16");
+    char* data = (char*) dst->data;
+    for(int ne3=0;ne3<dst->ne[3];ne3++){
+        for(int ne2=0;ne2<dst->ne[2];ne2++){
+            for(int ne1=0;ne1<dst->ne[1];ne1++){
+                for(int ne0=0;ne0<dst->ne[0];ne0++){
+                    if(ne0<10){
+                        printf("%f ", *(float *) (data+ne3*dst->nb[3] + ne2*dst->nb[2] + ne1*dst->nb[1] + ne0*dst->nb[0]));
+                    }
+                }
+                printf("\n");
+            }
+            printf("\n");
+        }
+    }
+}
+static void ggml_compute_forward_print(
+        const struct ggml_compute_params * params,
+        const struct ggml_tensor * src0,
+        struct ggml_tensor * dst) {
+    // print the tensor
+    switch (dst->type) {
+        case GGML_TYPE_F32:
+            {
+                ggml_compute_forward_print_f32(params, src0, dst);
+            } break;
+        case GGML_TYPE_F16:
+        {
+            ggml_compute_forward_print_f16(params, src0, dst);
+        } break;
+        default:
+            {
+                GGML_ASSERT(false);
+            } break;
+    }
+    
+}
 
 /////////////////////////////////
 
@@ -14703,6 +14766,10 @@ static void ggml_compute_forward(struct ggml_compute_params * params, struct ggm
         case GGML_OP_COUNT:
             {
                 GGML_ASSERT(false);
+            } break;
+        case GGML_OP_PRINT:
+            {
+                ggml_compute_forward_print(params,tensor->src[0],tensor);
             } break;
     }
 }

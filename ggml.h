@@ -438,6 +438,7 @@ extern "C" {
         GGML_OP_CROSS_ENTROPY_LOSS_BACK,
 
         GGML_OP_COUNT,
+        GGML_OP_PRINT,
     };
 
     enum ggml_unary_op {
@@ -704,6 +705,9 @@ extern "C" {
     GGML_API struct ggml_tensor * ggml_new_f32(struct ggml_context * ctx, float value);
 
     GGML_API struct ggml_tensor * ggml_dup_tensor (struct ggml_context * ctx, const struct ggml_tensor * src);
+    GGML_API struct ggml_tensor * ggml_print( 
+        struct ggml_context * ctx,
+        struct ggml_tensor * src);
     GGML_API struct ggml_tensor * ggml_view_tensor(struct ggml_context * ctx, struct ggml_tensor * src);
 
     // Context tensor enumeration and lookup
