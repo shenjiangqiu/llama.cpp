@@ -1,11 +1,11 @@
 #include "ggml-quants.h"
 #include "ggml-impl.h"
-
-#include <math.h>
-#include <string.h>
 #include <assert.h>
 #include <float.h>
-
+#include <math.h>
+#include <rust_utils.h>
+#include <stdio.h>
+#include <string.h>
 #ifdef __ARM_NEON
 
 // if YCM cannot find <arm_neon.h>, make a symbolic link to it, for example:
@@ -3997,6 +3997,7 @@ void ggml_vec_dot_q2_K_q8_K(const int n, float * restrict s, const void * restri
     for (int i = 0; i < nb; ++i) {
 
         const uint8_t * q2 = x[i].qs;
+
         const  int8_t * q8 = y[i].qs;
         const uint8_t * sc = x[i].scales;
 
@@ -4011,16 +4012,26 @@ void ggml_vec_dot_q2_K_q8_K(const int n, float * restrict s, const void * restri
         int isum = 0;
         int is = 0;
         int d;
+        // int8_t to_print[256];
+        // int to_print_index = 0;
         for (int k = 0; k < QK_K/128; ++k) {
             int shift = 0;
             for (int j = 0; j < 4; ++j) {
                 d = sc[is++] & 0xF;
                 int isuml = 0;
-                for (int l =  0; l < 16; ++l) isuml += q8[l] * ((q2[l] >> shift) & 3);
+                for (int l = 0; l < 16; ++l) {
+                  isuml += q8[l] * ((q2[l] >> shift) & 3);
+                  //   int ele = ((q2[l] >> shift) & 3);
+                  //   to_print[to_print_index++] = ele;
+                };
                 isum += d * isuml;
                 d = sc[is++] & 0xF;
                 isuml = 0;
-                for (int l = 16; l < 32; ++l) isuml += q8[l] * ((q2[l] >> shift) & 3);
+                for (int l = 16; l < 32; ++l) {
+                  isuml += q8[l] * ((q2[l] >> shift) & 3);
+                  //   int ele = ((q2[l] >> shift) & 3);
+                  //   to_print[to_print_index++] = ele;
+                };
                 isum += d * isuml;
                 shift += 2;
                 q8 += 32;
@@ -4028,6 +4039,7 @@ void ggml_vec_dot_q2_K_q8_K(const int n, float * restrict s, const void * restri
             q2 += 32;
         }
         sumf += dall * isum - dmin * summs;
+        // print_vec(&to_print);
     }
     *s = sumf;
 #endif

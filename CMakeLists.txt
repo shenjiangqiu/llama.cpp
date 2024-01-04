@@ -1,6 +1,20 @@
 cmake_minimum_required(VERSION 3.13)  # for add_link_options
 project("llama.cpp" C CXX)
 
+include(FetchContent)
+
+FetchContent_Declare(
+    Corrosion
+    GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
+    GIT_TAG v0.4 # Optionally specify a commit hash, version tag or branch here
+)
+FetchContent_MakeAvailable(Corrosion)
+
+# Import targets defined in a package or workspace manifest `Cargo.toml` file
+corrosion_import_crate(MANIFEST_PATH rust_utils/crates/capi/Cargo.toml)
+
+
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if (NOT XCODE AND NOT MSVC AND NOT CMAKE_BUILD_TYPE)
@@ -108,7 +122,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/scripts/build-info.cmake)
 # Compile flags
 #
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED true)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED true)
@@ -725,9 +739,9 @@ add_library(ggml OBJECT
             ${GGML_SOURCES_EXTRA}  ${GGML_HEADERS_EXTRA}
             )
 
-target_include_directories(ggml PUBLIC . ${LLAMA_EXTRA_INCLUDES})
+target_include_directories(ggml PUBLIC . ${LLAMA_EXTRA_INCLUDES} rust_utils/crates/capi)
 target_compile_features(ggml PUBLIC c_std_11) # don't bump
-target_link_libraries(ggml PUBLIC Threads::Threads ${LLAMA_EXTRA_LIBS})
+target_link_libraries(ggml PUBLIC Threads::Threads ${LLAMA_EXTRA_LIBS} rust_utils_capi)
 if (GGML_USE_CPU_HBM)
     target_link_libraries(ggml PUBLIC memkind)
 endif()
@@ -747,13 +761,13 @@ add_library(llama
             llama.h
             )
 
-target_include_directories(llama PUBLIC .)
+target_include_directories(llama PUBLIC . )
 target_compile_features(llama PUBLIC cxx_std_11) # don't bump
-target_link_libraries(llama PRIVATE
+target_link_libraries(llama PUBLIC
     ggml
     ${LLAMA_EXTRA_LIBS}
+    
     )
-
 if (BUILD_SHARED_LIBS)
     set_target_properties(llama PROPERTIES POSITION_INDEPENDENT_CODE ON)
     target_compile_definitions(llama PRIVATE LLAMA_SHARED LLAMA_BUILD)

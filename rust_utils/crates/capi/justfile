@@ -1,0 +1,2 @@
+generate:
+    RUSTUP_TOOLCHAIN=nightly cbindgen -c cbindgen.toml -o rust_utils.h

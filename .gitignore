@@ -11,6 +11,8 @@
 *.gcda
 *.dot
 *.bat
+.idea
+cmake-*
 *.metallib
 .DS_Store
 .build/
@@ -23,7 +25,7 @@
 .clang-tidy
 .vs/
 .vscode/
-
+rust_utils/target
 lcov-report/
 gcovr-report/
 

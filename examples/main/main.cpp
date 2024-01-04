@@ -2,7 +2,6 @@
 
 #include "console.h"
 #include "llama.h"
-
 #include <cassert>
 #include <cinttypes>
 #include <cmath>
@@ -11,6 +10,7 @@
 #include <ctime>
 #include <fstream>
 #include <iostream>
+#include <rust_utils.h>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -109,7 +109,10 @@ static void llama_log_callback_logTee(ggml_log_level level, const char * text, v
 int main(int argc, char ** argv) {
     gpt_params params;
     g_params = &params;
-
+    // enable print logger
+    init_logger_asni();
+    // enable save the tensor during runtime
+    enable_save();
     if (!gpt_params_parse(argc, argv, params)) {
         return 1;
     }

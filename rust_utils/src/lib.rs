@@ -1,0 +1,100 @@
+use std::sync::RwLock;
+use std::{
+    collections::BTreeMap,
+    ffi::{c_char, CStr},
+};
+
+use tracing::level_filters::LevelFilter;
+use tracing_subscriber::EnvFilter;
+mod bigarray;
+
+pub mod translate;
+
+pub fn save_data<BlockType: Clone>(
+    name: *const c_char,
+    size: usize,
+    data: *const BlockType,
+    store: &RwLock<BTreeMap<String, Vec<BlockType>>>,
+    modified: &std::sync::atomic::AtomicBool,
+) {
+    let name = unsafe { CStr::from_ptr(name) }.to_str().unwrap();
+    assert!(name.len() < 100);
+
+    let size = size / 256;
+    let q2_data = unsafe { std::slice::from_raw_parts(data, size) };
+    let q2_data = q2_data.to_vec();
+    let mut all_data_q2 = store.write().unwrap();
+    if all_data_q2.contains_key(name) {
+        println!("the name is {:?} already exists", name);
+        return;
+    } else {
+        println!("the name is {:?},insert!", name);
+        let q2_data = q2_data.to_vec();
+
+        all_data_q2.insert(name.to_owned(), q2_data);
+        modified.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+    println!("the name is {:?}", name);
+    println!("the size is {:?}", size);
+}
+
+pub fn save_data_append<BlockType: Clone>(
+    name: *const c_char,
+    size: usize,
+    data: *const BlockType,
+    store: &RwLock<BTreeMap<String, Vec<BlockType>>>,
+    modified: &std::sync::atomic::AtomicBool,
+) {
+    modified.store(true, std::sync::atomic::Ordering::SeqCst);
+    let name = unsafe { CStr::from_ptr(name) }.to_str().unwrap();
+    assert!(name.len() < 100);
+    assert!(size % 256 == 0);
+    println!("the size is {:?}", size);
+    let size = size / 256;
+    println!("the blocks is {:?}", size);
+    let q2_data = unsafe { std::slice::from_raw_parts(data, size) };
+    let q2_data = q2_data.to_vec();
+    let mut all_data_q2 = store.write().unwrap();
+    if all_data_q2.contains_key(name) {
+        println!("the name is {:?} already exists appending", name);
+        let data = all_data_q2.get_mut(name).unwrap();
+        data.extend_from_slice(&q2_data);
+        println!("after appending the size is {:?}", data.len());
+        return;
+    } else {
+        println!("the name is {:?},insert!", name);
+        let q2_data = q2_data.to_vec();
+
+        all_data_q2.insert(name.to_owned(), q2_data);
+    }
+    println!("the name is {:?}", name);
+    println!("the size is {:?}", size);
+}
+pub fn init_logger_asni() {
+    tracing_subscriber::fmt::SubscriberBuilder::default()
+        .with_env_filter(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::INFO.into())
+                .from_env_lossy(),
+        )
+        .with_writer(std::io::stderr)
+        .with_ansi(true)
+        .init();
+}
+pub fn init_logger() {
+    tracing_subscriber::fmt::SubscriberBuilder::default()
+        .with_env_filter(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::INFO.into())
+                .from_env_lossy(),
+        )
+        .with_ansi(false)
+        .with_writer(std::io::stderr)
+        .init();
+}
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_size() {}
+}
