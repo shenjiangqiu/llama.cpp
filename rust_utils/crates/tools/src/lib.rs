@@ -14,18 +14,20 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     fs::File,
     io::{BufReader, BufWriter},
+    ops::Add,
     path::Path,
 };
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use real_sim::{RealSim, Report};
-use rust_utils::translate::{
-    from_q5_to_u8, from_q6_to_u8, new_from_q2_to_u8, new_from_q3_to_u8, new_from_q4_to_u8,
-};
+
 use rust_utils_capi::{quants::*, MulMatRegister};
 use serde::{Deserialize, Serialize};
-use tracing::info;
-
+use tracing::{error, info};
+pub mod default_map;
+pub mod shift_map;
+pub mod shift_sort_map;
+pub mod sorted_map;
 macro_rules! test_all {
     ($test_fn:ident,$all_data:ident,$mb2:expr,$mb3:expr,$mb4:expr,$mb5:expr,$mb6:expr,$mb8:expr;$($size:literal),* $(,)?) => {
         {
@@ -107,29 +109,12 @@ impl AllData {
     }
 }
 #[derive(Debug, Serialize, Deserialize)]
-struct FileResult {
-    file_path: String,
-    results: Vec<Result>,
+pub struct FileResult {
+    pub file_path: String,
+    pub results: Vec<Result>,
 }
 
-pub fn default_map_q2(data: &BlockQ2K) -> Vec<u8> {
-    new_from_q2_to_u8(&data.qs).to_vec()
-}
-pub fn default_map_q3(data: &BlockQ3K) -> Vec<u8> {
-    new_from_q3_to_u8(&data.qs, &data.hmask).to_vec()
-}
-pub fn default_map_q4(data: &BlockQ4K) -> Vec<u8> {
-    new_from_q4_to_u8(&data.qs).to_vec()
-}
-pub fn default_map_q5(data: &BlockQ5K) -> Vec<u8> {
-    from_q5_to_u8(&data.qs, &data.qh).to_vec()
-}
-pub fn default_map_q6(data: &BlockQ6K) -> Vec<u8> {
-    from_q6_to_u8(&data.ql, &data.qh).to_vec()
-}
-pub fn default_map_q8(data: &BlockQ8K) -> Vec<u8> {
-    data.qs.iter().map(|x| *x as u8).collect()
-}
+// return if all bits fron 0..TH is 1
 pub fn is_all_1<const TH: usize>(data: u8) -> bool {
     for i in 0..TH {
         if data & (1 << i) == 0 {
@@ -138,6 +123,7 @@ pub fn is_all_1<const TH: usize>(data: u8) -> bool {
     }
     return true;
 }
+
 pub fn add_by_one(data: &mut Vec<u8>) {
     data.iter_mut().for_each(|x| {
         if is_all_1::<2>(*x) {
@@ -230,7 +216,7 @@ pub fn run_main(
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct SingleResult {
+pub struct SingleResult {
     src_0_bits: u8,
     src_1_bits: u8,
     src_0_name: String,
@@ -238,10 +224,42 @@ struct SingleResult {
     report: Report,
 }
 #[derive(Debug, Serialize, Deserialize)]
-struct Result {
-    all_results: Vec<SingleResult>,
-    real_sim_width: u16,
+pub struct Result {
+    pub all_results: Vec<SingleResult>,
+    pub real_sim_width: u16,
 }
+pub trait MergeAll<Merged> {
+    fn merge_all(self) -> Merged;
+}
+
+impl<T, In, I> MergeAll<I> for T
+where
+    T: IntoIterator<Item = In>,
+    In: MergeAll<I>,
+    I: Add<Output = I> + Default,
+{
+    fn merge_all(self) -> I {
+        self.into_iter()
+            .map(|x| x.merge_all())
+            .fold(I::default(), |acc, x| acc + x)
+    }
+}
+impl MergeAll<Report> for SingleResult {
+    fn merge_all(self) -> Report {
+        self.report
+    }
+}
+impl MergeAll<Report> for Result {
+    fn merge_all(self) -> Report {
+        self.all_results.merge_all()
+    }
+}
+impl MergeAll<Report> for FileResult {
+    fn merge_all(self) -> Report {
+        self.results.merge_all()
+    }
+}
+
 fn test_width<const WIDTH: u16>(
     all_data: &AllData,
     map_q2: impl Fn(&BlockQ2K) -> Vec<u8> + Sync + Send + Clone + Copy,
@@ -277,40 +295,80 @@ fn test_width<const WIDTH: u16>(
                     let data_0 = (all_data.q2).get(src_0_name).unwrap();
                     let data_1 = (all_data.q8).get(src_1_name).unwrap();
                     get_single_result(
-                        ne0, data_0, data_1, &real_sim, src_0_bits, src_1_bits, src_0_name,
-                        src_1_name, map_q2, map_q8,
+                        ne0,
+                        data_0,
+                        data_1,
+                        |a, b| real_sim.run_2_8(a, b),
+                        src_0_bits,
+                        src_1_bits,
+                        src_0_name,
+                        src_1_name,
+                        map_q2,
+                        map_q8,
                     )
                 }
                 (3, 8) => {
                     let data_0 = (all_data.q3).get(src_0_name).unwrap();
                     let data_1 = (all_data.q8).get(src_1_name).unwrap();
                     get_single_result(
-                        ne0, data_0, data_1, &real_sim, src_0_bits, src_1_bits, src_0_name,
-                        src_1_name, map_q3, map_q8,
+                        ne0,
+                        data_0,
+                        data_1,
+                        |a, b| real_sim.run_3_8(a, b),
+                        src_0_bits,
+                        src_1_bits,
+                        src_0_name,
+                        src_1_name,
+                        map_q3,
+                        map_q8,
                     )
                 }
                 (4, 8) => {
                     let data_0 = (all_data.q4).get(src_0_name).unwrap();
                     let data_1 = (all_data.q8).get(src_1_name).unwrap();
                     get_single_result(
-                        ne0, data_0, data_1, &real_sim, src_0_bits, src_1_bits, src_0_name,
-                        src_1_name, map_q4, map_q8,
+                        ne0,
+                        data_0,
+                        data_1,
+                        |a, b| real_sim.run_4_8(a, b),
+                        src_0_bits,
+                        src_1_bits,
+                        src_0_name,
+                        src_1_name,
+                        map_q4,
+                        map_q8,
                     )
                 }
                 (5, 8) => {
                     let data_0 = (all_data.q5).get(src_0_name).unwrap();
                     let data_1 = (all_data.q8).get(src_1_name).unwrap();
                     get_single_result(
-                        ne0, data_0, data_1, &real_sim, src_0_bits, src_1_bits, src_0_name,
-                        src_1_name, map_q5, map_q8,
+                        ne0,
+                        data_0,
+                        data_1,
+                        |a, b| real_sim.run_5_8(a, b),
+                        src_0_bits,
+                        src_1_bits,
+                        src_0_name,
+                        src_1_name,
+                        map_q5,
+                        map_q8,
                     )
                 }
                 (6, 8) => {
                     let data_0 = (all_data.q6).get(src_0_name).unwrap();
                     let data_1 = (all_data.q8).get(src_1_name).unwrap();
                     get_single_result(
-                        ne0, data_0, data_1, &real_sim, src_0_bits, src_1_bits, src_0_name,
-                        src_1_name, map_q6, map_q8,
+                        ne0,
+                        data_0,
+                        data_1,
+                        |a, b| real_sim.run_6_8(a, b),
+                        src_0_bits,
+                        src_1_bits,
+                        src_0_name,
+                        src_1_name,
+                        map_q6,
+                        map_q8,
                     )
                 }
                 _ => {
@@ -325,11 +383,11 @@ fn test_width<const WIDTH: u16>(
     }
 }
 
-fn get_single_result<const WIDTH: u16, T1, T2>(
+fn get_single_result<T1, T2>(
     ne0: usize,
     data_0: &Vec<T1>,
     data_1: &Vec<T2>,
-    real_sim: &RealSim<WIDTH>,
+    real_sim: impl Fn(&[u8], &[u8]) -> Report,
     src_0_bits: u8,
     src_1_bits: u8,
     src_0_name: &str,
@@ -351,6 +409,16 @@ fn get_single_result<const WIDTH: u16, T1, T2>(
             acc
         },
     );
+    assert!(
+        data_0_u8.len() % ne0 == 0,
+        "the data_0_u8 is {:?}",
+        data_0_u8.len()
+    );
+    assert!(
+        data_1_u8.len() % ne0 == 0,
+        "the data_1_u8 is {:?}",
+        data_1_u8.len()
+    );
     assert!(data_0_u8.len() % ne0 == 0);
     assert!(data_1_u8.len() % ne0 == 0);
     let data_0_rows = data_0_u8.len() / ne0;
@@ -360,9 +428,9 @@ fn get_single_result<const WIDTH: u16, T1, T2>(
         for r1 in 0..data_1_rows {
             let data_0_row_data = &data_0_u8[r0 * ne0..(r0 + 1) * ne0];
             let data_1_row_data = &data_1_u8[r1 * ne0..(r1 + 1) * ne0];
-            let t_report = real_sim.run_2_8(data_0_row_data, data_1_row_data);
-            report.all_steps += t_report.all_steps;
-            report.max_steps += t_report.max_steps;
+            let t_report = real_sim(data_0_row_data, data_1_row_data);
+            report.all_steps = report.all_steps.checked_add(t_report.all_steps).unwrap();
+            report.max_steps = report.max_steps.checked_add(t_report.max_steps).unwrap();
         }
     }
     let single_result = SingleResult {
@@ -372,8 +440,226 @@ fn get_single_result<const WIDTH: u16, T1, T2>(
         src_1_name: src_1_name.to_owned(),
         report,
     };
+    if single_result.report.all_steps > single_result.report.max_steps {
+        error!("the single_result is {:?}", single_result);
+        error!("the data_0_u8 is {:?}", &data_0_u8[0..100]);
+        error!("the data_1_u8 is {:?}", &data_1_u8[0..100]);
+        error!("the data_0_bits is {:?}", src_0_bits);
+        error!("the data_1_bits is {:?}", src_1_bits);
+        panic!("the single_result is {:?}", single_result);
+    }
     single_result
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+    use crate::{add_by_one, sort_by_most_zeros};
+    #[test]
+    fn test_shift_and_sort() {
+        let mut data = vec![
+            0b0111_1111,
+            0b0000_1111,
+            0b0001_1111,
+            0b0011_1111,
+            0b0111_1111,
+        ];
+        sort_by_most_zeros(&mut data);
+        println!("data is {:?}", data);
+        add_by_one(&mut data);
+        println!("data is {:?}", data);
+    }
+
+    #[test]
+    fn test_test_width() {
+        let all_data = init_test_data();
+        let r1 = {
+            use default_map::*;
+            test_width::<32>(&all_data, map_q2, map_q3, map_q4, map_q5, map_q6, map_q8)
+        };
+
+        let r2 = {
+            use sorted_map::*;
+            test_width::<32>(&all_data, map_q2, map_q3, map_q4, map_q5, map_q6, map_q8)
+        };
+        println!("r1 is {:?}", r1);
+        let r1 = r1.merge_all();
+        println!("r1 is {:?}", r1);
+
+        println!("r2 is {:?}", r2);
+        let r2 = r2.merge_all();
+        println!("r2 is {:?}", r2);
+        assert_eq!(r1.all_steps, r2.all_steps);
+        assert_eq!(r1.max_steps, r2.max_steps);
+        let r3 = {
+            use shift_sort_map::*;
+            test_width::<32>(&all_data, map_q2, map_q3, map_q4, map_q5, map_q6, map_q8)
+        };
+        println!("r3 is {:?}", r3);
+        let r3 = r3.merge_all();
+        println!("r3 is {:?}", r3);
+        assert_eq!(r1.max_steps, r3.max_steps);
+        assert!(r3.all_steps < r1.all_steps);
+        assert!(r3.all_steps < r2.all_steps);
+        assert!(r3.all_steps < r3.max_steps);
+    }
+
+    fn init_test_data() -> AllData {
+        let all_data = AllData {
+            q2: [(
+                "test".to_owned(),
+                vec![
+                    BlockQ2K {
+                        scales: [0; 16],
+                        qs: [15; 64],
+                        d: 0,
+                        dmin: 0,
+                    };
+                    16
+                ],
+            )]
+            .into(),
+            q3: [(
+                "test".to_owned(),
+                vec![BlockQ3K {
+                    scales: [0; 12],
+                    qs: [15; 64],
+                    hmask: [0; 32],
+                    d: 0,
+                }],
+            )]
+            .into(),
+            q4: [(
+                "test".to_owned(),
+                vec![BlockQ4K {
+                    scales: [0; 12],
+                    qs: [15; 128],
+                    d: 0,
+                    dmin: 0,
+                }],
+            )]
+            .into(),
+            q5: [(
+                "test".to_owned(),
+                vec![BlockQ5K {
+                    scales: [0; 12],
+                    qs: [15; 128],
+                    qh: [0; 32],
+                    d: 0,
+                    dmin: 0,
+                }],
+            )]
+            .into(),
+            q6: [(
+                "test".to_owned(),
+                vec![BlockQ6K {
+                    scales: [0; 16],
+                    ql: [15; 128],
+                    qh: [15; 64],
+                    d: 0,
+                }],
+            )]
+            .into(),
+            q8: [(
+                "test".to_owned(),
+                vec![
+                    BlockQ8K {
+                        qs: [15; 256],
+                        d: 0.,
+                        bsum: Default::default(),
+                    };
+                    16
+                ],
+            )]
+            .into(),
+            mul_mat_register: vec![MulMatRegister {
+                src_0_bits: 2,
+                src_1_bits: 8,
+                src_0_ne0: 4096,
+                src_0_ne1: 1,
+                src_1_ne0: 4096,
+                src_1_ne1: 1,
+                src_0_name: "test".to_owned(),
+                src_1_name: "test".to_owned(),
+            }],
+        };
+        all_data
+    }
+
+    #[test]
+    fn test_test_all() {
+        let data = init_test_data();
+        let result_default = {
+            use default_map::*;
+            test_all!(
+                test_width,
+                data,
+                map_q2,
+                map_q3,
+                map_q4,
+                map_q5,
+                map_q6,
+                map_q8;
+                32, 64, 128, 256, 512, 1024
+            )
+        };
+        let result_sorted = {
+            use sorted_map::*;
+            test_all!(
+                test_width,
+                data,
+                map_q2,
+                map_q3,
+                map_q4,
+                map_q5,
+                map_q6,
+                map_q8;
+                32, 64, 128, 256, 512, 1024
+            )
+        };
+        let result_shift = {
+            use shift_map::*;
+            test_all!(
+                test_width,
+                data,
+                map_q2,
+                map_q3,
+                map_q4,
+                map_q5,
+                map_q6,
+                map_q8;
+                32, 64, 128, 256, 512, 1024
+            )
+        };
+        let result_shift_sort = {
+            use shift_sort_map::*;
+            test_all!(
+                test_width,
+                data,
+                map_q2,
+                map_q3,
+                map_q4,
+                map_q5,
+                map_q6,
+                map_q8;
+                32, 64, 128, 256, 512, 1024
+            )
+        };
+        let result_default = result_default.merge_all();
+        let result_sorted = result_sorted.merge_all();
+        let result_shift = result_shift.merge_all();
+        let result_shift_sort = result_shift_sort.merge_all();
+        println!("result_default is {:?}", result_default);
+        println!("result_sorted is {:?}", result_sorted);
+        println!("result_shift is {:?}", result_shift);
+        println!("result_shift_sort is {:?}", result_shift_sort);
+        assert_eq!(result_default.max_steps, result_sorted.max_steps);
+        assert_eq!(result_default.max_steps, result_shift.max_steps);
+        assert_eq!(result_default.max_steps, result_shift_sort.max_steps);
+    }
+
+    #[test]
+    fn test_u32_max() {
+        println!("u32::MAX is {:?}", u32::MAX);
+    }
+}
