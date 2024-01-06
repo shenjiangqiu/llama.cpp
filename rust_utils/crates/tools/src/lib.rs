@@ -18,22 +18,21 @@ use std::{
     path::Path,
 };
 
+use maps::TransformMapping;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use real_sim::{RealSim, Report};
 
 use rust_utils_capi::{quants::*, MulMatRegister};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
-pub mod default_map;
-pub mod shift_map;
-pub mod shift_sort_map;
-pub mod sorted_map;
+pub mod maps;
+
 macro_rules! test_all {
-    ($test_fn:ident,$all_data:ident,$mb2:expr,$mb3:expr,$mb4:expr,$mb5:expr,$mb6:expr,$mb8:expr;$($size:literal),* $(,)?) => {
+    ($test_fn:ident,$all_data:ident,$mapping:expr;$($size:literal),* $(,)?) => {
         {
             let mut results = vec![];
             $(
-                let _r=$test_fn::<$size>(&$all_data,$mb2,$mb3,$mb4,$mb5,$mb6,$mb8);
+                let _r=$test_fn::<$size,_>(&$all_data,$mapping);
                 results.push(_r);
             )*
             results
@@ -124,41 +123,8 @@ pub fn is_all_1<const TH: usize>(data: u8) -> bool {
     return true;
 }
 
-pub fn add_by_one(data: &mut Vec<u8>) {
-    data.iter_mut().for_each(|x| {
-        if is_all_1::<2>(*x) {
-            *x = *x + 1;
-        }
-    });
-}
-pub fn sort_by_most_zeros(data: &mut Vec<u8>) {
-    let ones_count: Vec<_> = (0..8)
-        .map(|bit| {
-            data.iter()
-                .map(|x| ((*x >> bit) & 1) as usize)
-                .sum::<usize>()
-        })
-        .collect();
-    let mut sorted: Vec<_> = ones_count.into_iter().enumerate().collect();
-    sorted.sort_by_key(|x| x.1);
-    let bit_index = sorted.into_iter().map(|x| x.0).collect::<Vec<_>>();
-    data.sort_by_key(|x| {
-        (
-            *x & (1 << bit_index[0]),
-            *x & (1 << bit_index[1]),
-            *x & (1 << bit_index[2]),
-            *x & (1 << bit_index[3]),
-        )
-    })
-}
-
-pub fn run_main(
-    map_q2: impl Fn(&BlockQ2K) -> Vec<u8> + Sync + Send + Clone + Copy,
-    map_q3: impl Fn(&BlockQ3K) -> Vec<u8> + Sync + Send + Clone + Copy,
-    map_q4: impl Fn(&BlockQ4K) -> Vec<u8> + Sync + Send + Clone + Copy,
-    map_q5: impl Fn(&BlockQ5K) -> Vec<u8> + Sync + Send + Clone + Copy,
-    map_q6: impl Fn(&BlockQ6K) -> Vec<u8> + Sync + Send + Clone + Copy,
-    map_q8: impl Fn(&BlockQ8K) -> Vec<u8> + Sync + Send + Clone + Copy,
+pub fn run_main<MAPPING: TransformMapping + Clone + Copy>(
+    mapping: MAPPING,
     result_file_name: &str,
 ) {
     rust_utils::init_logger_asni();
@@ -202,7 +168,7 @@ pub fn run_main(
             q8,
             mul_mat_register: registrys,
         };
-        let results = test_all!(test_width,all_data,map_q2,map_q3,map_q4,map_q5,map_q6,map_q8;32,64,128,256,512,1024);
+        let results = test_all!(test_width,all_data,mapping;32,64,128,256,512,1024);
         let file_result = FileResult {
             file_path: p.to_owned(),
             results,
@@ -260,14 +226,9 @@ impl MergeAll<Report> for FileResult {
     }
 }
 
-fn test_width<const WIDTH: u16>(
+fn test_width<const WIDTH: u16, MAPPING: TransformMapping + Clone + Copy>(
     all_data: &AllData,
-    map_q2: impl Fn(&BlockQ2K) -> Vec<u8> + Sync + Send + Clone + Copy,
-    map_q3: impl Fn(&BlockQ3K) -> Vec<u8> + Sync + Send + Clone + Copy,
-    map_q4: impl Fn(&BlockQ4K) -> Vec<u8> + Sync + Send + Clone + Copy,
-    map_q5: impl Fn(&BlockQ5K) -> Vec<u8> + Sync + Send + Clone + Copy,
-    map_q6: impl Fn(&BlockQ6K) -> Vec<u8> + Sync + Send + Clone + Copy,
-    map_q8: impl Fn(&BlockQ8K) -> Vec<u8> + Sync + Send + Clone + Copy,
+    _mapping: MAPPING,
 ) -> Result {
     all_data.print_names();
     let all_computes = all_data
@@ -303,8 +264,8 @@ fn test_width<const WIDTH: u16>(
                         src_1_bits,
                         src_0_name,
                         src_1_name,
-                        map_q2,
-                        map_q8,
+                        MAPPING::map_q2::<WIDTH>,
+                        MAPPING::map_q8::<WIDTH>,
                     )
                 }
                 (3, 8) => {
@@ -319,8 +280,8 @@ fn test_width<const WIDTH: u16>(
                         src_1_bits,
                         src_0_name,
                         src_1_name,
-                        map_q3,
-                        map_q8,
+                        MAPPING::map_q3::<WIDTH>,
+                        MAPPING::map_q8::<WIDTH>,
                     )
                 }
                 (4, 8) => {
@@ -335,8 +296,8 @@ fn test_width<const WIDTH: u16>(
                         src_1_bits,
                         src_0_name,
                         src_1_name,
-                        map_q4,
-                        map_q8,
+                        MAPPING::map_q4::<WIDTH>,
+                        MAPPING::map_q8::<WIDTH>,
                     )
                 }
                 (5, 8) => {
@@ -351,8 +312,8 @@ fn test_width<const WIDTH: u16>(
                         src_1_bits,
                         src_0_name,
                         src_1_name,
-                        map_q5,
-                        map_q8,
+                        MAPPING::map_q5::<WIDTH>,
+                        MAPPING::map_q8::<WIDTH>,
                     )
                 }
                 (6, 8) => {
@@ -367,8 +328,8 @@ fn test_width<const WIDTH: u16>(
                         src_1_bits,
                         src_0_name,
                         src_1_name,
-                        map_q6,
-                        map_q8,
+                        MAPPING::map_q6::<WIDTH>,
+                        MAPPING::map_q8::<WIDTH>,
                     )
                 }
                 _ => {
@@ -453,8 +414,14 @@ fn get_single_result<T1, T2>(
 
 #[cfg(test)]
 mod tests {
+    use crate::maps::{
+        default_map,
+        shift_map::{self, add_by_one},
+        shift_sort_map,
+        sorted_map::{self, sort_by_most_zeros},
+    };
+
     use super::*;
-    use crate::{add_by_one, sort_by_most_zeros};
     #[test]
     fn test_shift_and_sort() {
         let mut data = vec![
@@ -475,12 +442,12 @@ mod tests {
         let all_data = init_test_data();
         let r1 = {
             use default_map::*;
-            test_width::<32>(&all_data, map_q2, map_q3, map_q4, map_q5, map_q6, map_q8)
+            test_width::<32, _>(&all_data, DefaultMap)
         };
 
         let r2 = {
             use sorted_map::*;
-            test_width::<32>(&all_data, map_q2, map_q3, map_q4, map_q5, map_q6, map_q8)
+            test_width::<32, _>(&all_data, SortedMap)
         };
         println!("r1 is {:?}", r1);
         let r1 = r1.merge_all();
@@ -493,7 +460,7 @@ mod tests {
         assert_eq!(r1.max_steps, r2.max_steps);
         let r3 = {
             use shift_sort_map::*;
-            test_width::<32>(&all_data, map_q2, map_q3, map_q4, map_q5, map_q6, map_q8)
+            test_width::<32, _>(&all_data, ShiftSortMap)
         };
         println!("r3 is {:?}", r3);
         let r3 = r3.merge_all();
@@ -591,29 +558,14 @@ mod tests {
         let data = init_test_data();
         let result_default = {
             use default_map::*;
-            test_all!(
-                test_width,
-                data,
-                map_q2,
-                map_q3,
-                map_q4,
-                map_q5,
-                map_q6,
-                map_q8;
-                32, 64, 128, 256, 512, 1024
-            )
+            test_all!(test_width, data, DefaultMap; 32, 64, 128, 256, 512, 1024)
         };
         let result_sorted = {
             use sorted_map::*;
             test_all!(
                 test_width,
                 data,
-                map_q2,
-                map_q3,
-                map_q4,
-                map_q5,
-                map_q6,
-                map_q8;
+                SortedMap;
                 32, 64, 128, 256, 512, 1024
             )
         };
@@ -622,12 +574,7 @@ mod tests {
             test_all!(
                 test_width,
                 data,
-                map_q2,
-                map_q3,
-                map_q4,
-                map_q5,
-                map_q6,
-                map_q8;
+                ShiftMap;
                 32, 64, 128, 256, 512, 1024
             )
         };
@@ -636,12 +583,7 @@ mod tests {
             test_all!(
                 test_width,
                 data,
-                map_q2,
-                map_q3,
-                map_q4,
-                map_q5,
-                map_q6,
-                map_q8;
+                ShiftSortMap;
                 32, 64, 128, 256, 512, 1024
             )
         };

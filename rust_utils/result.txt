@@ -5,36 +5,42 @@ SIM_WIDTH: 32
 ./q3data: max_steps_sorted speedup 1.06
 ./q3data: max_steps_shifted speedup 1.00
 ./q3data: max_steps_shifted_sorted speedup 1.11
+./q3data: max_steps_minus speedup 1.36
 SIM_WIDTH: 64
 ./q3data: max_steps_shifted_sorted: 66274983936
 ./q3data: max_steps_real speedup 1.00
 ./q3data: max_steps_sorted speedup 1.06
 ./q3data: max_steps_shifted speedup 1.00
 ./q3data: max_steps_shifted_sorted speedup 1.09
+./q3data: max_steps_minus speedup 1.36
 SIM_WIDTH: 128
 ./q3data: max_steps_shifted_sorted: 33137491968
 ./q3data: max_steps_real speedup 1.00
 ./q3data: max_steps_sorted speedup 1.06
 ./q3data: max_steps_shifted speedup 1.00
 ./q3data: max_steps_shifted_sorted speedup 1.06
+./q3data: max_steps_minus speedup 1.36
 SIM_WIDTH: 256
 ./q3data: max_steps_shifted_sorted: 16568745984
 ./q3data: max_steps_real speedup 1.00
 ./q3data: max_steps_sorted speedup 1.00
 ./q3data: max_steps_shifted speedup 1.00
 ./q3data: max_steps_shifted_sorted speedup 1.00
+./q3data: max_steps_minus speedup 1.35
 SIM_WIDTH: 512
 ./q3data: max_steps_shifted_sorted: 8339423232
 ./q3data: max_steps_real speedup 1.00
 ./q3data: max_steps_sorted speedup 1.00
 ./q3data: max_steps_shifted speedup 1.00
 ./q3data: max_steps_shifted_sorted speedup 1.00
+./q3data: max_steps_minus speedup 1.35
 SIM_WIDTH: 1024
 ./q3data: max_steps_shifted_sorted: 4169711616
 ./q3data: max_steps_real speedup 1.00
 ./q3data: max_steps_sorted speedup 1.00
 ./q3data: max_steps_shifted speedup 1.00
 ./q3data: max_steps_shifted_sorted speedup 1.00
+./q3data: max_steps_minus speedup 1.35
 file: ./q5data
 SIM_WIDTH: 32
 ./q5data: max_steps_shifted_sorted: 215581982720
@@ -42,36 +48,42 @@ SIM_WIDTH: 32
 ./q5data: max_steps_sorted speedup 1.11
 ./q5data: max_steps_shifted speedup 1.00
 ./q5data: max_steps_shifted_sorted speedup 1.22
+./q5data: max_steps_minus speedup 1.26
 SIM_WIDTH: 64
 ./q5data: max_steps_shifted_sorted: 107790991360
 ./q5data: max_steps_real speedup 1.00
 ./q5data: max_steps_sorted speedup 1.11
 ./q5data: max_steps_shifted speedup 1.00
 ./q5data: max_steps_shifted_sorted speedup 1.19
+./q5data: max_steps_minus speedup 1.25
 SIM_WIDTH: 128
 ./q5data: max_steps_shifted_sorted: 53895495680
 ./q5data: max_steps_real speedup 1.00
 ./q5data: max_steps_sorted speedup 1.11
 ./q5data: max_steps_shifted speedup 1.00
 ./q5data: max_steps_shifted_sorted speedup 1.11
+./q5data: max_steps_minus speedup 1.25
 SIM_WIDTH: 256
 ./q5data: max_steps_shifted_sorted: 26947747840
 ./q5data: max_steps_real speedup 1.00
 ./q5data: max_steps_sorted speedup 1.00
 ./q5data: max_steps_shifted speedup 1.00
 ./q5data: max_steps_shifted_sorted speedup 1.00
+./q5data: max_steps_minus speedup 1.25
 SIM_WIDTH: 512
 ./q5data: max_steps_shifted_sorted: 13542031360
 ./q5data: max_steps_real speedup 1.00
 ./q5data: max_steps_sorted speedup 1.00
 ./q5data: max_steps_shifted speedup 1.00
 ./q5data: max_steps_shifted_sorted speedup 1.00
+./q5data: max_steps_minus speedup 1.25
 SIM_WIDTH: 1024
 ./q5data: max_steps_shifted_sorted: 6771015680
 ./q5data: max_steps_real speedup 1.00
 ./q5data: max_steps_sorted speedup 1.00
 ./q5data: max_steps_shifted speedup 1.00
 ./q5data: max_steps_shifted_sorted speedup 1.00
+./q5data: max_steps_minus speedup 1.25
 file: ./q6data
 SIM_WIDTH: 32
 ./q6data: max_steps_shifted_sorted: 247765401600
@@ -79,33 +91,39 @@ SIM_WIDTH: 32
 ./q6data: max_steps_sorted speedup 1.17
 ./q6data: max_steps_shifted speedup 1.00
 ./q6data: max_steps_shifted_sorted speedup 1.29
+./q6data: max_steps_minus speedup 1.40
 SIM_WIDTH: 64
 ./q6data: max_steps_shifted_sorted: 123882700800
 ./q6data: max_steps_real speedup 1.00
 ./q6data: max_steps_sorted speedup 1.14
 ./q6data: max_steps_shifted speedup 1.00
 ./q6data: max_steps_shifted_sorted speedup 1.24
+./q6data: max_steps_minus speedup 1.39
 SIM_WIDTH: 128
 ./q6data: max_steps_shifted_sorted: 61941350400
 ./q6data: max_steps_real speedup 1.00
 ./q6data: max_steps_sorted speedup 1.09
 ./q6data: max_steps_shifted speedup 1.00
 ./q6data: max_steps_shifted_sorted speedup 1.14
+./q6data: max_steps_minus speedup 1.33
 SIM_WIDTH: 256
 ./q6data: max_steps_shifted_sorted: 30970675200
 ./q6data: max_steps_real speedup 1.00
 ./q6data: max_steps_sorted speedup 1.00
 ./q6data: max_steps_shifted speedup 1.00
 ./q6data: max_steps_shifted_sorted speedup 1.00
+./q6data: max_steps_minus speedup 1.20
 SIM_WIDTH: 512
 ./q6data: max_steps_shifted_sorted: 15563980800
 ./q6data: max_steps_real speedup 1.00
 ./q6data: max_steps_sorted speedup 1.00
 ./q6data: max_steps_shifted speedup 1.00
 ./q6data: max_steps_shifted_sorted speedup 1.00
+./q6data: max_steps_minus speedup 1.20
 SIM_WIDTH: 1024
 ./q6data: max_steps_shifted_sorted: 7781990400
 ./q6data: max_steps_real speedup 1.00
 ./q6data: max_steps_sorted speedup 1.00
 ./q6data: max_steps_shifted speedup 1.00
 ./q6data: max_steps_shifted_sorted speedup 1.00
+./q6data: max_steps_minus speedup 1.20

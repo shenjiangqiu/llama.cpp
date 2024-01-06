@@ -21,20 +21,24 @@ fn main() {
         let sorted = load_result(&Path::new(p).join("default_real_sim_sorted.bin"));
         let shifted = load_result(&Path::new(p).join("default_real_sim_shifted.bin"));
         let shifted_sorted = load_result(&Path::new(p).join("default_real_sim_shifted_sorted.bin"));
+        let minus = load_result(&Path::new(p).join("default_real_shift_minus_sorted.bin"));
         let real_report: Vec<_> = get_report(real);
         let sorted_report: Vec<_> = get_report(sorted);
         let shifted_report = get_report(shifted);
         let shifted_sorted_report = get_report(shifted_sorted);
+        let minus_report = get_report(minus);
         println!("file: {}", p);
-        for (real_report, sorted_report, shifted_report, shifted_sorted_report) in izip!(
+        for (real_report, sorted_report, shifted_report, shifted_sorted_report,minus_report) in izip!(
             &real_report,
             &sorted_report,
             &shifted_report,
-            &shifted_sorted_report
+            &shifted_sorted_report,
+            &minus_report
         ) {
             assert_eq!(real_report.1.max_steps, sorted_report.1.max_steps);
             assert_eq!(real_report.1.max_steps, shifted_report.1.max_steps);
             assert_eq!(real_report.1.max_steps, shifted_sorted_report.1.max_steps);
+            assert_eq!(real_report.1.max_steps, minus_report.1.max_steps);
             println!("SIM_WIDTH: {}", real_report.0);
             println!(
                 "{}: max_steps_shifted_sorted: {}",
@@ -59,6 +63,11 @@ fn main() {
                 "{}: max_steps_shifted_sorted speedup {:.2}",
                 p,
                 shifted_sorted_report.1.max_steps as f64 / shifted_sorted_report.1.all_steps as f64
+            );
+            println!(
+                "{}: max_steps_minus speedup {:.2}",
+                p,
+                minus_report.1.max_steps as f64 / minus_report.1.all_steps as f64
             );
         }
     }
