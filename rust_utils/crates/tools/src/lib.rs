@@ -24,7 +24,7 @@ use transform::{ReorderMapping, TransformMapping};
 
 use rust_utils_capi::{quants::*, MulMatRegister};
 use serde::{Deserialize, Serialize};
-use tracing::{error, info};
+use tracing::{error, info, info_span, span};
 use translate::TranslateMapping;
 
 use crate::transform::sorted_map;
@@ -234,6 +234,7 @@ impl MergeAll<Report> for FileResult {
     }
 }
 
+/// select the right function to run according to the bits
 macro_rules! match_bit_size {
     ($src_0_bits:expr,$src_1_bits:expr,$all_data:ident,$src_0_name:ident,$src_1_name:ident,$ne0:ident,$real_sim:ident,$width:ident;
         $($a:literal,$b:literal,$name_a:ident,$name_b:ident,$map_a:ident,$map_b:ident);* $(;)?) => {
@@ -269,6 +270,7 @@ fn test_width<
 >(
     all_data: &AllData,
 ) -> Result {
+    info!("start testting width {:?}", WIDTH);
     all_data.print_names();
     let all_computes = all_data
         .mul_mat_register
@@ -283,19 +285,31 @@ fn test_width<
             )
         })
         .collect::<BTreeSet<_>>();
+    let num_tasks = all_computes.len();
+    let finished = std::sync::atomic::AtomicUsize::new(0);
     let real_sim = RealSim::<WIDTH>::new();
-
+    let span = info_span!("test_width", width = WIDTH);
+    info!("the num_tasks is {:?}", num_tasks);
     let result = all_computes
         .into_par_iter()
         .map(
             move |(src_0_bits, src_1_bits, ne0, src_0_name, src_1_name)| {
-                match_bit_size!(
+                let _enter = span.enter();
+                let current_finished = finished.load(std::sync::atomic::Ordering::Relaxed);
+                info!("start testting :{}/{}", current_finished, num_tasks,);
+                let result = match_bit_size!(
                     src_0_bits,src_1_bits,all_data,src_0_name,src_1_name,ne0,real_sim,WIDTH;
                     2,8,q2,q8,map_q2,map_q8;
                     3,8,q3,q8,map_q3,map_q8;
                     4,8,q4,q8,map_q4,map_q8;
                     5,8,q5,q8,map_q5,map_q8;
-                    6,8,q6,q8,map_q6,map_q8;)
+                    6,8,q6,q8,map_q6,map_q8;);
+                info!(
+                    "finish testting :{}/{}",
+                    finished.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1,
+                    num_tasks,
+                );
+                result
             },
         )
         .collect::<Vec<_>>();

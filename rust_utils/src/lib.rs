@@ -5,6 +5,7 @@ use std::{
 };
 
 use tracing::level_filters::LevelFilter;
+use tracing_subscriber::fmt::format::{self, Format};
 use tracing_subscriber::EnvFilter;
 mod bigarray;
 
@@ -79,7 +80,8 @@ pub fn init_logger_asni() {
         )
         .with_writer(std::io::stderr)
         .with_ansi(true)
-        .init();
+        .try_init()
+        .unwrap_or_default();
 }
 pub fn init_logger() {
     tracing_subscriber::fmt::SubscriberBuilder::default()
@@ -90,11 +92,40 @@ pub fn init_logger() {
         )
         .with_ansi(false)
         .with_writer(std::io::stderr)
-        .init();
+        .try_init()
+        .unwrap_or_default();
 }
 #[cfg(test)]
 mod tests {
+    use tracing::{info, info_span};
+
+    use crate::init_logger_asni;
 
     #[test]
     fn test_size() {}
+
+    #[test]
+    fn test_tracing() {
+        init_logger_asni();
+        let span = info_span!("my_span", a = 10);
+        let _enter = span.enter();
+        info!("hello world");
+    }
+    #[test]
+    fn test_tracing_mutithread() {
+        init_logger_asni();
+        let span = info_span!("my_span", a = 10);
+        let _enter = span.enter();
+        let mut handles = vec![];
+        info!("hello world");
+
+        for _i in 0..10 {
+            handles.push(std::thread::spawn(|| {
+                info!("hello world");
+            }));
+        }
+        for handle in handles {
+            handle.join().unwrap();
+        }
+    }
 }
