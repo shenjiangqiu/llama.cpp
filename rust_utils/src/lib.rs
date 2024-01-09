@@ -7,7 +7,6 @@ use std::{
 use tracing::level_filters::LevelFilter;
 
 use tracing_subscriber::EnvFilter;
-mod bigarray;
 
 pub mod translate;
 
