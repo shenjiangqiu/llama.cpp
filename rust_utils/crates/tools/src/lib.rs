@@ -137,6 +137,8 @@ pub fn run_main<
     rust_utils::init_logger_asni();
     let paths = ["./q5data", "./q6data"];
     for p in paths {
+        let span = info_span!("run_main", path = p);
+        let _enter = span.enter();
         let folder = Path::new(p);
         let q2: BTreeMap<String, Vec<BlockQ2K>> = bincode::deserialize_from(BufReader::new(
             File::open(folder.join("ALL_DATA_Q2.bin")).unwrap(),
