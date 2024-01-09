@@ -9,7 +9,7 @@ mod tests {
                         println!("{} is {}", stringify!($x), $x);
                     }
                 )*
-                
+
                 _ => {
                     println!("default");
                 }
