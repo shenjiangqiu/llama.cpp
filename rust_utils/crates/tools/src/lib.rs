@@ -24,7 +24,7 @@ use transform::{ReorderMapping, TransformMapping};
 
 use rust_utils_capi::{quants::*, MulMatRegister};
 use serde::{Deserialize, Serialize};
-use tracing::{error, info, info_span, span};
+use tracing::{error, info, info_span};
 use translate::TranslateMapping;
 
 use crate::transform::sorted_map;
@@ -135,7 +135,7 @@ pub fn run_main<
     result_file_name: &str,
 ) {
     rust_utils::init_logger_asni();
-    let paths = ["./q3data", "./q5data", "./q6data"];
+    let paths = ["./q5data", "./q6data"];
     for p in paths {
         let folder = Path::new(p);
         let q2: BTreeMap<String, Vec<BlockQ2K>> = bincode::deserialize_from(BufReader::new(
@@ -175,8 +175,7 @@ pub fn run_main<
             q8,
             mul_mat_register: registrys,
         };
-        let results =
-            test_all!(test_width,all_data,TransLate,TransForm,Reorder;32,64,128,256,512,1024);
+        let results = test_all!(test_width,all_data,TransLate,TransForm,Reorder;128,256,512,1024);
         let file_result = FileResult {
             file_path: p.to_owned(),
             results,

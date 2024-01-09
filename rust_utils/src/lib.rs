@@ -5,7 +5,7 @@ use std::{
 };
 
 use tracing::level_filters::LevelFilter;
-use tracing_subscriber::fmt::format::{self, Format};
+
 use tracing_subscriber::EnvFilter;
 mod bigarray;
 
