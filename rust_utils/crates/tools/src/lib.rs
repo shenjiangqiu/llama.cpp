@@ -15,7 +15,8 @@ use std::{
     fs::File,
     io::{BufReader, BufWriter},
     ops::Add,
-    path::Path,
+    path::{Path, PathBuf},
+    str::FromStr,
 };
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -30,8 +31,9 @@ use tracing::{error, info, info_span};
 
 use rust_utils_common::transform::sorted_map;
 
+#[macro_export]
 macro_rules! test_all {
-    ($test_fn:ident,$all_data:ident,$translate_mapping:ty,$transform_mapping:ty,$sort_mapping:ty;$($size:literal),* $(,)?) => {
+    ($test_fn:ident,$all_data:ident;$translate_mapping:ty,$transform_mapping:ty,$sort_mapping:ty;$($size:literal),* $(,)? $(;)?) => {
         {
             let mut results = vec![];
             $(
@@ -39,6 +41,56 @@ macro_rules! test_all {
                 results.push(_r);
             )*
             results
+        }
+    };
+    (
+        ($test_fn:ident,$all_data:ident);
+        ($translate_mapping:ty,$transform_mapping:ty,$sort_mapping:ty);
+        ($($size:literal),* $(,)? $(;)?)) =>{
+            test_all!($test_fn,$all_data;$translate_mapping,$transform_mapping,$sort_mapping;$($size),*)
+        }
+}
+#[macro_export]
+macro_rules! test_all_schemes {
+    (
+        $part_1:tt;
+        ($($part2:tt),* $(,)?);
+        $part3:tt
+    ) => {
+        {
+            let mut all_results = vec![];
+            $(
+                let config = stringify!($part2);
+                let _r=test_all!($part_1;$part2;$part3);
+                all_results.push((config,_r));
+            )*
+            all_results
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! test_all_schemes_parallel {
+    (
+        $part_1:tt;
+        ($($part2:tt),* $(,)?);
+        $part3:tt
+    ) => {
+        {
+            use rayon::iter::{IntoParallelIterator, ParallelIterator};
+            let mut all_execut_fn:Vec<Box<dyn Fn()->Vec<rust_utils_tools::Result> + Send>> = vec![];
+            $(
+                let _fn = ||{
+                    let config = stringify!($part2);
+                    let r=test_all!($part_1;$part2;$part3);
+                    r
+                };
+                all_execut_fn.push(Box::new(_fn));
+
+            )*
+            all_execut_fn.into_par_iter().map(|f|{
+                f()
+            }).collect::<Vec<_>>()
         }
     };
 }
@@ -112,7 +164,7 @@ impl AllData {
 }
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FileResult {
-    pub file_path: String,
+    pub file_path: PathBuf,
     pub results: Vec<Result>,
 }
 
@@ -166,9 +218,9 @@ pub fn run_main<
             q8,
             mul_mat_register: registrys,
         };
-        let results = test_all!(test_width,all_data,TransLate,TransForm,Reorder;128,256,512,1024);
+        let results = test_all!(test_width,all_data;TransLate,TransForm,Reorder;128,256,512,1024);
         let file_result = FileResult {
-            file_path: p.to_owned(),
+            file_path: PathBuf::from_str(p).unwrap(),
             results,
         };
         bincode::serialize_into(
@@ -252,7 +304,7 @@ macro_rules! match_bit_size {
     };
 }
 
-fn test_width<
+pub fn test_width<
     const WIDTH: u16,
     TransLate: TranslateMapping,
     TransForm: TransformMapping,
@@ -563,13 +615,13 @@ mod tests {
         use sorted_map::*;
         let result_default = {
             use default_map::*;
-            test_all!(test_width, data, DefaultTranslator,DefaultTransform,NoSortMap; 32, 64, 128, 256, 512, 1024)
+            test_all!(test_width, data; DefaultTranslator,DefaultTransform,NoSortMap; 32, 64, 128, 256, 512, 1024)
         };
         let result_sorted = {
             use sorted_map::*;
             test_all!(
                 test_width,
-                data,DefaultTranslator,
+                data;DefaultTranslator,
                 DefaultTransform,SortedMap;
                 32, 64, 128, 256, 512, 1024
             )
@@ -578,7 +630,7 @@ mod tests {
             use shift_map::*;
             test_all!(
                 test_width,
-                data,DefaultTranslator,
+                data;DefaultTranslator,
                 ShiftMap, NoSortMap;
                 32, 64, 128, 256, 512, 1024
             )
@@ -586,7 +638,7 @@ mod tests {
         let result_shift_sort = {
             test_all!(
                 test_width,
-                data,DefaultTranslator,
+                data;DefaultTranslator,
                 ShiftMap, SortedMap;
                 32, 64, 128, 256, 512, 1024
             )

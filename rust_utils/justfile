@@ -1,0 +1,6 @@
+import "crates/capi/justfile"
+pwd:
+    @echo "current dir:$(pwd)"
+    @echo "ivoke dir: {{invocation_directory()}}"
+    @echo "just dir: {{justfile_directory()}}"
+    @echo "just file: {{justfile()}}"

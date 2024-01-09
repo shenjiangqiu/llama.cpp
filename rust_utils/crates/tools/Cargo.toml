@@ -16,3 +16,4 @@ clap = { workspace = true }
 clap_derive = { workspace = true }
 rayon = { workspace = true }
 itertools = { workspace = true }
+slugify = { workspace = true }
