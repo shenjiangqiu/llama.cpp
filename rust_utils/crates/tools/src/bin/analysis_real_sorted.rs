@@ -1,7 +1,12 @@
-use rust_utils_tools::maps::sorted_map::SortedMap;
+use rust_utils_tools::{
+    transform::{default_map::DefaultTransform, sorted_map::SortedMap},
+    translate::DefaultTranslator,
+};
 
 fn main() {
-    rust_utils_tools::run_main(SortedMap, "default_real_sim_sorted.bin");
+    rust_utils_tools::run_main::<DefaultTranslator, DefaultTransform, SortedMap>(
+        "default_real_sim_sorted.bin",
+    );
 }
 
 #[cfg(test)]

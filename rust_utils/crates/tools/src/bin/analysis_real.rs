@@ -1,5 +1,10 @@
-use rust_utils_tools::maps::default_map::DefaultMap;
+use rust_utils_tools::{
+    transform::{default_map::DefaultTransform, sorted_map::NoSortMap},
+    translate::DefaultTranslator,
+};
 
 fn main() {
-    rust_utils_tools::run_main(DefaultMap, "default_real_sim.bin");
+    rust_utils_tools::run_main::<DefaultTranslator, DefaultTransform, NoSortMap>(
+        "default_real_sim.bin",
+    );
 }

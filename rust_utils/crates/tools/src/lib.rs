@@ -18,21 +18,25 @@ use std::{
     path::Path,
 };
 
-use maps::TransformMapping;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use real_sim::{RealSim, Report};
+use transform::{ReorderMapping, TransformMapping};
 
 use rust_utils_capi::{quants::*, MulMatRegister};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
-pub mod maps;
+use translate::TranslateMapping;
 
+use crate::transform::sorted_map;
+
+pub mod transform;
+pub mod translate;
 macro_rules! test_all {
-    ($test_fn:ident,$all_data:ident,$mapping:expr;$($size:literal),* $(,)?) => {
+    ($test_fn:ident,$all_data:ident,$translate_mapping:ty,$transform_mapping:ty,$sort_mapping:ty;$($size:literal),* $(,)?) => {
         {
             let mut results = vec![];
             $(
-                let _r=$test_fn::<$size,_>(&$all_data,$mapping);
+                let _r=$test_fn::<$size,$translate_mapping,$transform_mapping,$sort_mapping>(&$all_data);
                 results.push(_r);
             )*
             results
@@ -123,8 +127,11 @@ pub fn is_all_1<const TH: usize>(data: u8) -> bool {
     return true;
 }
 
-pub fn run_main<MAPPING: TransformMapping + Clone + Copy>(
-    mapping: MAPPING,
+pub fn run_main<
+    TransLate: TranslateMapping,
+    TransForm: TransformMapping,
+    Reorder: ReorderMapping,
+>(
     result_file_name: &str,
 ) {
     rust_utils::init_logger_asni();
@@ -168,7 +175,8 @@ pub fn run_main<MAPPING: TransformMapping + Clone + Copy>(
             q8,
             mul_mat_register: registrys,
         };
-        let results = test_all!(test_width,all_data,mapping;32,64,128,256,512,1024);
+        let results =
+            test_all!(test_width,all_data,TransLate,TransForm,Reorder;32,64,128,256,512,1024);
         let file_result = FileResult {
             file_path: p.to_owned(),
             results,
@@ -226,9 +234,40 @@ impl MergeAll<Report> for FileResult {
     }
 }
 
-fn test_width<const WIDTH: u16, MAPPING: TransformMapping + Clone + Copy>(
+macro_rules! match_bit_size {
+    ($src_0_bits:expr,$src_1_bits:expr,$all_data:ident,$src_0_name:ident,$src_1_name:ident,$ne0:ident,$real_sim:ident,$width:ident;
+        $($a:literal,$b:literal,$name_a:ident,$name_b:ident,$map_a:ident,$map_b:ident);* $(;)?) => {
+        match ($src_0_bits,$src_1_bits){
+            $(
+                ($a, $b) => {
+                    let data_0 = ($all_data.$name_a).get($src_0_name).unwrap();
+                    let data_1 = ($all_data.$name_b).get($src_1_name).unwrap();
+                    get_single_result::<$a,$b,$width, _, _, TransForm, Reorder>(
+                        $ne0,
+                        data_0,
+                        data_1,
+                        &$real_sim,
+                        $src_0_name,
+                        $src_1_name,
+                        TransLate::$map_a,
+                        TransLate::$map_b,
+                    )
+                }
+            )*
+            _=>{
+                unreachable!()
+            }
+        }
+    };
+}
+
+fn test_width<
+    const WIDTH: u16,
+    TransLate: TranslateMapping,
+    TransForm: TransformMapping,
+    Reorder: ReorderMapping,
+>(
     all_data: &AllData,
-    _mapping: MAPPING,
 ) -> Result {
     all_data.print_names();
     let all_computes = all_data
@@ -249,92 +288,14 @@ fn test_width<const WIDTH: u16, MAPPING: TransformMapping + Clone + Copy>(
     let result = all_computes
         .into_par_iter()
         .map(
-            move |(src_0_bits, src_1_bits, ne0, src_0_name, src_1_name)| match (
-                src_0_bits, src_1_bits,
-            ) {
-                (2, 8) => {
-                    let data_0 = (all_data.q2).get(src_0_name).unwrap();
-                    let data_1 = (all_data.q8).get(src_1_name).unwrap();
-                    get_single_result(
-                        ne0,
-                        data_0,
-                        data_1,
-                        |a, b| real_sim.run_2_8(a, b),
-                        src_0_bits,
-                        src_1_bits,
-                        src_0_name,
-                        src_1_name,
-                        MAPPING::map_q2::<WIDTH>,
-                        MAPPING::map_q8::<WIDTH>,
-                    )
-                }
-                (3, 8) => {
-                    let data_0 = (all_data.q3).get(src_0_name).unwrap();
-                    let data_1 = (all_data.q8).get(src_1_name).unwrap();
-                    get_single_result(
-                        ne0,
-                        data_0,
-                        data_1,
-                        |a, b| real_sim.run_3_8(a, b),
-                        src_0_bits,
-                        src_1_bits,
-                        src_0_name,
-                        src_1_name,
-                        MAPPING::map_q3::<WIDTH>,
-                        MAPPING::map_q8::<WIDTH>,
-                    )
-                }
-                (4, 8) => {
-                    let data_0 = (all_data.q4).get(src_0_name).unwrap();
-                    let data_1 = (all_data.q8).get(src_1_name).unwrap();
-                    get_single_result(
-                        ne0,
-                        data_0,
-                        data_1,
-                        |a, b| real_sim.run_4_8(a, b),
-                        src_0_bits,
-                        src_1_bits,
-                        src_0_name,
-                        src_1_name,
-                        MAPPING::map_q4::<WIDTH>,
-                        MAPPING::map_q8::<WIDTH>,
-                    )
-                }
-                (5, 8) => {
-                    let data_0 = (all_data.q5).get(src_0_name).unwrap();
-                    let data_1 = (all_data.q8).get(src_1_name).unwrap();
-                    get_single_result(
-                        ne0,
-                        data_0,
-                        data_1,
-                        |a, b| real_sim.run_5_8(a, b),
-                        src_0_bits,
-                        src_1_bits,
-                        src_0_name,
-                        src_1_name,
-                        MAPPING::map_q5::<WIDTH>,
-                        MAPPING::map_q8::<WIDTH>,
-                    )
-                }
-                (6, 8) => {
-                    let data_0 = (all_data.q6).get(src_0_name).unwrap();
-                    let data_1 = (all_data.q8).get(src_1_name).unwrap();
-                    get_single_result(
-                        ne0,
-                        data_0,
-                        data_1,
-                        |a, b| real_sim.run_6_8(a, b),
-                        src_0_bits,
-                        src_1_bits,
-                        src_0_name,
-                        src_1_name,
-                        MAPPING::map_q6::<WIDTH>,
-                        MAPPING::map_q8::<WIDTH>,
-                    )
-                }
-                _ => {
-                    unreachable!()
-                }
+            move |(src_0_bits, src_1_bits, ne0, src_0_name, src_1_name)| {
+                match_bit_size!(
+                    src_0_bits,src_1_bits,all_data,src_0_name,src_1_name,ne0,real_sim,WIDTH;
+                    2,8,q2,q8,map_q2,map_q8;
+                    3,8,q3,q8,map_q3,map_q8;
+                    4,8,q4,q8,map_q4,map_q8;
+                    5,8,q5,q8,map_q5,map_q8;
+                    6,8,q6,q8,map_q6,map_q8;)
             },
         )
         .collect::<Vec<_>>();
@@ -343,38 +304,39 @@ fn test_width<const WIDTH: u16, MAPPING: TransformMapping + Clone + Copy>(
         real_sim_width: WIDTH,
     }
 }
-
-fn get_single_result<T1, T2>(
+/// return the report
+fn get_single_result<
+    const SRC_A_BITS: u8,
+    const SRC_B_BITS: u8,
+    const WIDTH: u16,
+    T1,
+    T2,
+    TransForm: TransformMapping,
+    Reorder: ReorderMapping,
+>(
     ne0: usize,
     data_0: &Vec<T1>,
     data_1: &Vec<T2>,
-    real_sim: impl Fn(&[u8], &[u8]) -> Report,
-    src_0_bits: u8,
-    src_1_bits: u8,
+    real_sim: &RealSim<WIDTH>,
     src_0_name: &str,
     src_1_name: &str,
-    map_data_0_to_vec: impl FnMut(&T1) -> Vec<u8>,
-    map_data_1_to_vec: impl FnMut(&T2) -> Vec<u8>,
+    map_data_0_to_vec: impl FnOnce(&[T1]) -> Vec<u8>,
+    map_data_1_to_vec: impl FnOnce(&[T2]) -> Vec<u8>,
 ) -> SingleResult {
-    let data_0_u8 = data_0.iter().map(map_data_0_to_vec).fold(
-        Vec::with_capacity(data_0.len() * 256),
-        |mut acc, v| {
-            acc.extend_from_slice(&v);
-            acc
-        },
-    );
-    let data_1_u8 = data_1.iter().map(map_data_1_to_vec).fold(
-        Vec::with_capacity(data_1.len() * 256),
-        |mut acc, v| {
-            acc.extend_from_slice(&v);
-            acc
-        },
-    );
+    // the data_0 and data_1 might not have the same length
+    let mut data_0_u8 = map_data_0_to_vec(data_0);
+
+    let mut data_1_u8 = map_data_1_to_vec(data_1);
+
+    // todo!("cannot transform here, it doesn't have the same length, so the sort is wrong");
+    TransForm::transform::<SRC_A_BITS>(&mut data_0_u8, &mut data_1_u8, ne0);
+    let reorder = Reorder::reorder::<SRC_A_BITS>(&data_0_u8, ne0);
     assert!(
         data_0_u8.len() % ne0 == 0,
         "the data_0_u8 is {:?}",
         data_0_u8.len()
     );
+
     assert!(
         data_1_u8.len() % ne0 == 0,
         "the data_1_u8 is {:?}",
@@ -382,31 +344,70 @@ fn get_single_result<T1, T2>(
     );
     assert!(data_0_u8.len() % ne0 == 0);
     assert!(data_1_u8.len() % ne0 == 0);
-    let data_0_rows = data_0_u8.len() / ne0;
-    let data_1_rows = data_1_u8.len() / ne0;
-    let mut report = Report::default();
-    for r0 in 0..data_0_rows {
-        for r1 in 0..data_1_rows {
-            let data_0_row_data = &data_0_u8[r0 * ne0..(r0 + 1) * ne0];
-            let data_1_row_data = &data_1_u8[r1 * ne0..(r1 + 1) * ne0];
-            let t_report = real_sim(data_0_row_data, data_1_row_data);
-            report.all_steps = report.all_steps.checked_add(t_report.all_steps).unwrap();
-            report.max_steps = report.max_steps.checked_add(t_report.max_steps).unwrap();
+
+    let fold_fn = |mut report: Report, r: Report| {
+        report.all_steps = report.all_steps.checked_add(r.all_steps).unwrap();
+        report.max_steps = report.max_steps.checked_add(r.max_steps).unwrap();
+        report
+    };
+    let all_result = match reorder {
+        Some(order) => {
+            let data_0_rows = data_0_u8.chunks_exact_mut(ne0);
+
+            // if the order is not none, then for each src_0_row, sort it, and sort all src_1_row
+            assert_eq!(data_0_rows.len(), order.len());
+            let all_result = data_0_rows
+                .zip(order)
+                .map(|(data_0_row, order)| {
+                    assert!(data_0_row.len() == ne0);
+                    assert!(order.len() == ne0);
+                    // sort the wright bits
+                    sorted_map::apply_index(data_0_row, &order);
+                    let mut data_1_rows = data_1_u8.to_owned();
+                    let data_1_rows = data_1_rows.chunks_exact_mut(ne0);
+                    // for each src_1_row, sort it by the same order
+                    data_1_rows
+                        .map(|row| {
+                            assert!(row.len() == ne0);
+                            sorted_map::apply_index(row, &order);
+                            real_sim.run::<SRC_A_BITS, SRC_B_BITS>(data_0_row, row)
+                        })
+                        .fold(Report::default(), fold_fn)
+                })
+                .fold(Report::default(), fold_fn);
+            all_result
         }
-    }
+        None => {
+            let all_result = data_0_u8
+                .chunks_exact(ne0)
+                .map(|data_0_row| {
+                    data_1_u8
+                        .chunks_exact(ne0)
+                        .map(|data_1_row| {
+                            assert!(data_0_row.len() == ne0);
+                            assert!(data_1_row.len() == ne0);
+                            real_sim.run::<SRC_A_BITS, SRC_B_BITS>(data_0_row, data_1_row)
+                        })
+                        .fold(Report::default(), fold_fn)
+                })
+                .fold(Report::default(), fold_fn);
+            all_result
+        }
+    };
+
     let single_result = SingleResult {
-        src_0_bits,
-        src_1_bits,
+        src_0_bits: SRC_A_BITS,
+        src_1_bits: SRC_B_BITS,
         src_0_name: src_0_name.to_owned(),
         src_1_name: src_1_name.to_owned(),
-        report,
+        report: all_result,
     };
     if single_result.report.all_steps > single_result.report.max_steps {
         error!("the single_result is {:?}", single_result);
         error!("the data_0_u8 is {:?}", &data_0_u8[0..100]);
         error!("the data_1_u8 is {:?}", &data_1_u8[0..100]);
-        error!("the data_0_bits is {:?}", src_0_bits);
-        error!("the data_1_bits is {:?}", src_1_bits);
+        error!("the data_0_bits is {:?}", SRC_A_BITS);
+        error!("the data_1_bits is {:?}", SRC_B_BITS);
         panic!("the single_result is {:?}", single_result);
     }
     single_result
@@ -414,11 +415,13 @@ fn get_single_result<T1, T2>(
 
 #[cfg(test)]
 mod tests {
-    use crate::maps::{
-        default_map,
-        shift_map::{self, add_by_one},
-        shift_sort_map,
-        sorted_map::{self, sort_by_most_zeros},
+    use crate::{
+        transform::{
+            default_map::{self, DefaultTransform},
+            shift_map::{self, add_by_one, ShiftMap},
+            sorted_map::{self, sort_by_most_zeros},
+        },
+        translate::DefaultTranslator,
     };
 
     use super::*;
@@ -431,7 +434,7 @@ mod tests {
             0b0011_1111,
             0b0111_1111,
         ];
-        sort_by_most_zeros(&mut data);
+        sort_by_most_zeros::<6>(&mut data);
         println!("data is {:?}", data);
         add_by_one(&mut data);
         println!("data is {:?}", data);
@@ -441,13 +444,11 @@ mod tests {
     fn test_test_width() {
         let all_data = init_test_data();
         let r1 = {
-            use default_map::*;
-            test_width::<32, _>(&all_data, DefaultMap)
+            test_width::<32, DefaultTranslator, DefaultTransform, sorted_map::NoSortMap>(&all_data)
         };
 
         let r2 = {
-            use sorted_map::*;
-            test_width::<32, _>(&all_data, SortedMap)
+            test_width::<32, DefaultTranslator, DefaultTransform, sorted_map::SortedMap>(&all_data)
         };
         println!("r1 is {:?}", r1);
         let r1 = r1.merge_all();
@@ -458,10 +459,8 @@ mod tests {
         println!("r2 is {:?}", r2);
         assert_eq!(r1.all_steps, r2.all_steps);
         assert_eq!(r1.max_steps, r2.max_steps);
-        let r3 = {
-            use shift_sort_map::*;
-            test_width::<32, _>(&all_data, ShiftSortMap)
-        };
+        let r3 =
+            { test_width::<32, DefaultTranslator, ShiftMap, sorted_map::SortedMap>(&all_data) };
         println!("r3 is {:?}", r3);
         let r3 = r3.merge_all();
         println!("r3 is {:?}", r3);
@@ -556,16 +555,18 @@ mod tests {
     #[test]
     fn test_test_all() {
         let data = init_test_data();
+        use sorted_map::*;
+        use translate::DefaultTranslator;
         let result_default = {
             use default_map::*;
-            test_all!(test_width, data, DefaultMap; 32, 64, 128, 256, 512, 1024)
+            test_all!(test_width, data, DefaultTranslator,DefaultTransform,NoSortMap; 32, 64, 128, 256, 512, 1024)
         };
         let result_sorted = {
             use sorted_map::*;
             test_all!(
                 test_width,
-                data,
-                SortedMap;
+                data,DefaultTranslator,
+                DefaultTransform,SortedMap;
                 32, 64, 128, 256, 512, 1024
             )
         };
@@ -573,17 +574,16 @@ mod tests {
             use shift_map::*;
             test_all!(
                 test_width,
-                data,
-                ShiftMap;
+                data,DefaultTranslator,
+                ShiftMap, NoSortMap;
                 32, 64, 128, 256, 512, 1024
             )
         };
         let result_shift_sort = {
-            use shift_sort_map::*;
             test_all!(
                 test_width,
-                data,
-                ShiftSortMap;
+                data,DefaultTranslator,
+                ShiftMap, SortedMap;
                 32, 64, 128, 256, 512, 1024
             )
         };

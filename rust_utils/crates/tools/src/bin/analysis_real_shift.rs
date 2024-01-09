@@ -1,7 +1,12 @@
-use rust_utils_tools::maps::shift_map::ShiftMap;
+use rust_utils_tools::{
+    transform::{shift_map::ShiftMap, sorted_map::NoSortMap},
+    translate::DefaultTranslator,
+};
 
 fn main() {
-    rust_utils_tools::run_main(ShiftMap, "default_real_sim_shifted.bin");
+    rust_utils_tools::run_main::<DefaultTranslator, ShiftMap, NoSortMap>(
+        "default_real_sim_shifted.bin",
+    );
 }
 
 #[cfg(test)]
