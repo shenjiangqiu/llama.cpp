@@ -2,8 +2,8 @@ use std::{collections::BTreeMap, fs::File, io::BufReader, path::PathBuf};
 
 use clap::Parser;
 use clap_derive::Parser;
-use rust_utils_capi::quants::*;
-use rust_utils_tools::is_all_1;
+use rust_utils_common::is_all_1;
+use rust_utils_common::quants::*;
 
 #[derive(Parser)]
 struct Cli {
@@ -44,7 +44,7 @@ fn main() {
         let (count, mg_count) = data
             .into_iter()
             .map(|x| {
-                let data_8 = rust_utils::translate::new_from_q2_to_u8(&x.qs);
+                let data_8 = rust_utils_common::translate::new_from_q2_to_u8(&x.qs);
                 (analysis_zeros::<2>(&data_8), analysis_zeros::<2>(&data_8))
             })
             .reduce(|mut x, y| {
@@ -75,7 +75,7 @@ fn main() {
         let (count, mg_count) = data
             .into_iter()
             .map(|x| {
-                let data_8 = rust_utils::translate::new_from_q3_to_u8(&x.qs, &x.hmask);
+                let data_8 = rust_utils_common::translate::new_from_q3_to_u8(&x.qs, &x.hmask);
                 (
                     analysis_zeros::<3>(&data_8),
                     analysis_zero_add_bit::<2, 3>(&data_8),
@@ -110,7 +110,7 @@ fn main() {
         let (count, mg_count) = data
             .into_iter()
             .map(|x| {
-                let data_8 = rust_utils::translate::new_from_q4_to_u8(&x.qs);
+                let data_8 = rust_utils_common::translate::new_from_q4_to_u8(&x.qs);
                 (
                     analysis_zeros::<4>(&data_8),
                     analysis_zero_add_bit::<2, 4>(&data_8),
@@ -145,7 +145,7 @@ fn main() {
         let (count, mg_count) = data
             .into_iter()
             .map(|x| {
-                let x = rust_utils::translate::from_q5_to_u8(&x.qs, &x.qh);
+                let x = rust_utils_common::translate::from_q5_to_u8(&x.qs, &x.qh);
 
                 (analysis_zeros::<5>(&x), analysis_zero_add_bit::<2, 5>(&x))
             })
@@ -178,7 +178,7 @@ fn main() {
         let (count, mg_count) = data
             .into_iter()
             .map(|x| {
-                let x = rust_utils::translate::from_q6_to_u8(&x.ql, &x.qh);
+                let x = rust_utils_common::translate::from_q6_to_u8(&x.ql, &x.qh);
 
                 (analysis_zeros::<6>(&x), analysis_zero_add_bit::<2, 6>(&x))
             })
@@ -253,7 +253,6 @@ fn analysis_zeros<const WIDTH: usize>(data: &[u8]) -> [usize; WIDTH] {
     count
 }
 
-
 fn analysis_zero_add_bit<const TH: usize, const WIDTH: usize>(data: &[u8]) -> [usize; WIDTH] {
     let mut count = [0; WIDTH];
     data.iter().for_each(|&x| {
@@ -285,12 +284,13 @@ mod tests {
     #[ignore = "this test is too slow"]
     fn test_deserialization() {
         let data: BTreeMap<String, Vec<BlockQ2K>> =
-            bincode::deserialize_from(BufReader::new(File::open("../../q2data/q2.bin").unwrap())).unwrap();
+            bincode::deserialize_from(BufReader::new(File::open("../../q2data/q2.bin").unwrap()))
+                .unwrap();
         for (k, v) in data {
             println!("{}: {}", k, v.len());
             for b in v {
                 let result: [_; 3] =
-                    analysis_zeros(&rust_utils::translate::new_from_q2_to_u8(&b.qs));
+                    analysis_zeros(&rust_utils_common::translate::new_from_q2_to_u8(&b.qs));
                 assert_eq!(result[2], 256);
             }
         }

@@ -152,6 +152,14 @@ void print_vec(const int8_t (*array)[256]);
 
 void print_vec_u8(const uint8_t (*array)[256]);
 
+/**
+ * update the data, policys:
+ * - 0: shift
+ * - 1: minus
+ * - 2: shift and minus
+ */
+void update_data(uint8_t (*arra)[256], uint8_t plocy);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif // __cplusplus

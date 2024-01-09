@@ -20,17 +20,16 @@ use std::{
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use real_sim::{RealSim, Report};
-use transform::{ReorderMapping, TransformMapping};
+use rust_utils_common::quants::*;
+use rust_utils_common::transform::{ReorderMapping, TransformMapping};
 
-use rust_utils_capi::{quants::*, MulMatRegister};
+use rust_utils_capi::MulMatRegister;
+use rust_utils_common::translate::TranslateMapping;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info, info_span};
-use translate::TranslateMapping;
 
-use crate::transform::sorted_map;
+use rust_utils_common::transform::sorted_map;
 
-pub mod transform;
-pub mod translate;
 macro_rules! test_all {
     ($test_fn:ident,$all_data:ident,$translate_mapping:ty,$transform_mapping:ty,$sort_mapping:ty;$($size:literal),* $(,)?) => {
         {
@@ -117,16 +116,6 @@ pub struct FileResult {
     pub results: Vec<Result>,
 }
 
-// return if all bits fron 0..TH is 1
-pub fn is_all_1<const TH: usize>(data: u8) -> bool {
-    for i in 0..TH {
-        if data & (1 << i) == 0 {
-            return false;
-        }
-    }
-    return true;
-}
-
 pub fn run_main<
     TransLate: TranslateMapping,
     TransForm: TransformMapping,
@@ -134,7 +123,7 @@ pub fn run_main<
 >(
     result_file_name: &str,
 ) {
-    rust_utils::init_logger_asni();
+    rust_utils_common::init_logger_asni();
     let paths = ["./q5data", "./q6data"];
     for p in paths {
         let span = info_span!("run_main", path = p);
@@ -430,7 +419,7 @@ fn get_single_result<
 
 #[cfg(test)]
 mod tests {
-    use crate::{
+    use rust_utils_common::{
         transform::{
             default_map::{self, DefaultTransform},
             shift_map::{self, add_by_one, ShiftMap},
@@ -570,8 +559,8 @@ mod tests {
     #[test]
     fn test_test_all() {
         let data = init_test_data();
+        use rust_utils_common::translate::DefaultTranslator;
         use sorted_map::*;
-        use translate::DefaultTranslator;
         let result_default = {
             use default_map::*;
             test_all!(test_width, data, DefaultTranslator,DefaultTransform,NoSortMap; 32, 64, 128, 256, 512, 1024)

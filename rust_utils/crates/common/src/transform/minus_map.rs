@@ -12,7 +12,7 @@ pub fn minus_by_one(data: &mut [u8]) {
 pub struct MinusMap;
 
 impl TransformMapping for MinusMap {
-    fn transform<const BITS:u8>(src_1: &mut [u8], src_2: &mut [u8],_:usize) {
+    fn transform<const BITS: u8>(src_1: &mut [u8], src_2: &mut [u8], _: usize) {
         minus_by_one(src_1);
         minus_by_one(src_2);
     }

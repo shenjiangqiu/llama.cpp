@@ -1,4 +1,6 @@
-use rust_utils::translate;
+use rust_utils_common::transform::minus_map;
+use rust_utils_common::translate;
+use rust_utils_common::{quants::*, transform::shift_map};
 use serde::{Deserialize, Serialize};
 use std::{
     ffi::{c_char, CStr},
@@ -20,8 +22,6 @@ pub struct MulMatRegister {
     pub src_1_name: String,
 }
 static MUL_MAT_REGISTER: std::sync::RwLock<Vec<MulMatRegister>> = std::sync::RwLock::new(vec![]);
-use crate::quants::*;
-pub mod quants;
 
 #[macro_export]
 macro_rules! generate_static {
@@ -36,9 +36,9 @@ macro_rules! generate_static {
                     return;
                 }
                 if $append{
-                    rust_utils::save_data_append(name,size,data,&$name,&$boolname);
+                    rust_utils_common::save_data_append(name,size,data,&$name,&$boolname);
                 }else{
-                    rust_utils::save_data(name,size,data,&$name,&$boolname);
+                    rust_utils_common::save_data(name,size,data,&$name,&$boolname);
                 }
             }
         )*
@@ -79,12 +79,12 @@ macro_rules! generate_static {
     };
 }
 generate_static!(
-    ALL_DATA_Q2: crate::quants::BlockQ2K,ALL_DATA_Q2_MODIFIED,save_tensor_continouse_q2,false;
-    ALL_DATA_Q3: crate::quants::BlockQ3K,ALL_DATA_Q3_MODIFIED,save_tensor_continouse_q3,false;
-    ALL_DATA_Q4: crate::quants::BlockQ4K,ALL_DATA_Q4_MODIFIED,save_tensor_continouse_q4,false;
-    ALL_DATA_Q5: crate::quants::BlockQ5K,ALL_DATA_Q5_MODIFIED,save_tensor_continouse_q5,false;
-    ALL_DATA_Q6: crate::quants::BlockQ6K,ALL_DATA_Q6_MODIFIED,save_tensor_continouse_q6,false;
-    ALL_DATA_Q8: crate::quants::BlockQ8K,ALL_DATA_Q8_MODIFIED,save_tensor_continouse_q8,true;
+    ALL_DATA_Q2: BlockQ2K,ALL_DATA_Q2_MODIFIED,save_tensor_continouse_q2,false;
+    ALL_DATA_Q3: BlockQ3K,ALL_DATA_Q3_MODIFIED,save_tensor_continouse_q3,false;
+    ALL_DATA_Q4: BlockQ4K,ALL_DATA_Q4_MODIFIED,save_tensor_continouse_q4,false;
+    ALL_DATA_Q5: BlockQ5K,ALL_DATA_Q5_MODIFIED,save_tensor_continouse_q5,false;
+    ALL_DATA_Q6: BlockQ6K,ALL_DATA_Q6_MODIFIED,save_tensor_continouse_q6,false;
+    ALL_DATA_Q8: BlockQ8K,ALL_DATA_Q8_MODIFIED,save_tensor_continouse_q8,true;
 );
 #[no_mangle]
 /// create a new name by concating two names, remember to call `free_name` to free the memory
@@ -138,11 +138,11 @@ pub extern "C" fn register_mul_mat(
 }
 #[no_mangle]
 pub extern "C" fn init_logger_asni() {
-    rust_utils::init_logger_asni();
+    rust_utils_common::init_logger_asni();
 }
 #[no_mangle]
 pub extern "C" fn init_logger() {
-    rust_utils::init_logger();
+    rust_utils_common::init_logger();
 }
 
 #[no_mangle]
@@ -239,6 +239,23 @@ pub extern "C" fn print_vec(array: &[i8; 256]) {
 pub extern "C" fn print_vec_u8(array: &[u8; 256]) {
     println!("the quants array u8");
     println!("{:?}", array);
+}
+
+#[no_mangle]
+/// update the data, policys:
+/// - 0: shift
+/// - 1: minus
+/// - 2: shift and minus
+pub extern "C" fn update_data(array: &mut [u8; 256], policy: u8) {
+    match policy {
+        0 => shift_map::add_by_one(array),
+        1 => minus_map::minus_by_one(array),
+        2 => {
+            shift_map::add_by_one(array);
+            minus_map::minus_by_one(array);
+        }
+        _ => panic!("the policy is not supported"),
+    }
 }
 
 #[cfg(test)]

@@ -1,0 +1,13 @@
+[package]
+name = "rust_utils_common"
+version = "0.1.0"
+edition = "2021"
+# use static lib
+[dependencies]
+itertools = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
+serde-big-array = { workspace = true }
+serde_derive = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["fmt", "env-filter"] }

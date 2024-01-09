@@ -1,3 +1,4 @@
+pub mod quants;
 use std::sync::RwLock;
 use std::{
     collections::BTreeMap,
@@ -7,8 +8,17 @@ use std::{
 use tracing::level_filters::LevelFilter;
 
 use tracing_subscriber::EnvFilter;
-
+pub mod transform;
 pub mod translate;
+// return if all bits fron 0..TH is 1
+pub fn is_all_1<const TH: usize>(data: u8) -> bool {
+    for i in 0..TH {
+        if data & (1 << i) == 0 {
+            return false;
+        }
+    }
+    return true;
+}
 
 pub fn save_data<BlockType: Clone>(
     name: *const c_char,

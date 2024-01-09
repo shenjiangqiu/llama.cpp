@@ -16,7 +16,7 @@ fn get_report(result: FileResult) -> Vec<(u16, Report)> {
         .collect()
 }
 fn main() {
-    for p in ["./q3data", "./q5data", "./q6data"] {
+    for p in ["./q5data", "./q6data"] {
         let real = load_result(&Path::new(p).join("default_real_sim.bin"));
         let sorted = load_result(&Path::new(p).join("default_real_sim_sorted.bin"));
         let shifted = load_result(&Path::new(p).join("default_real_sim_shifted.bin"));
@@ -28,7 +28,7 @@ fn main() {
         let shifted_sorted_report = get_report(shifted_sorted);
         let minus_report = get_report(minus);
         println!("file: {}", p);
-        for (real_report, sorted_report, shifted_report, shifted_sorted_report,minus_report) in izip!(
+        for (real_report, sorted_report, shifted_report, shifted_sorted_report, minus_report) in izip!(
             &real_report,
             &sorted_report,
             &shifted_report,
