@@ -1,0 +1,1 @@
+cargo run --release --package rust_utils_tools --bin test_all 

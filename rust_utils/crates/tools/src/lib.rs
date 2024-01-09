@@ -81,7 +81,10 @@ macro_rules! test_all_schemes_parallel {
             let mut all_execut_fn:Vec<Box<dyn Fn()->Vec<rust_utils_tools::Result> + Send>> = vec![];
             $(
                 let _fn = ||{
+
                     let config = stringify!($part2);
+                    let span = info_span!("config",config = config);
+                    let _enter = span.enter();
                     let r=test_all!($part_1;$part2;$part3);
                     r
                 };
