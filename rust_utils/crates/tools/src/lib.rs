@@ -16,7 +16,6 @@ use std::{
     io::{BufReader, BufWriter},
     ops::Add,
     path::{Path, PathBuf},
-    str::FromStr,
 };
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -171,13 +170,7 @@ pub struct FileResult {
     pub results: Vec<Result>,
 }
 
-pub fn run_main<
-    TransLate: TranslateMapping,
-    TransForm: TransformMapping,
-    Reorder: ReorderMapping,
->(
-    result_file_name: &str,
-) {
+pub fn run_all_data(mut next_step: impl FnMut(&AllData, &Path)) {
     rust_utils_common::init_logger_asni();
     let paths = ["./q5data", "./q6data"];
     for p in paths {
@@ -221,17 +214,31 @@ pub fn run_main<
             q8,
             mul_mat_register: registrys,
         };
+        next_step(&all_data, folder);
+    }
+}
+
+pub fn run_main<
+    TransLate: TranslateMapping,
+    TransForm: TransformMapping,
+    Reorder: ReorderMapping,
+>(
+    result_file_name: &str,
+) {
+    let next_step = |all_data: &AllData, dataset_path: &Path| {
         let results = test_all!(test_width,all_data;TransLate,TransForm,Reorder;128,256,512,1024);
         let file_result = FileResult {
-            file_path: PathBuf::from_str(p).unwrap(),
+            file_path: dataset_path.to_owned(),
             results,
         };
         bincode::serialize_into(
-            BufWriter::new(File::create(folder.join(result_file_name)).unwrap()),
+            BufWriter::new(File::create(dataset_path.join(result_file_name)).unwrap()),
             &file_result,
         )
         .unwrap();
-    }
+    };
+
+    run_all_data(next_step);
 }
 
 #[derive(Debug, Serialize, Deserialize)]

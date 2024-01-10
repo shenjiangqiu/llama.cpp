@@ -1,63 +1,19 @@
-use std::collections::BTreeMap;
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::{BufWriter, Write};
 use std::path::Path;
 
-use rust_utils_capi::MulMatRegister;
-use rust_utils_common::quants::*;
 use rust_utils_common::transform::default_map::DefaultTransform;
 use rust_utils_common::transform::minus_map::MinusMap;
 use rust_utils_common::transform::shift_map::ShiftMap;
 use rust_utils_common::transform::sorted_map::{NoSortMap, SortedMap};
 use rust_utils_common::translate::DefaultTranslator;
-use rust_utils_tools::test_all;
+use rust_utils_tools::{run_all_data, test_all};
 use rust_utils_tools::{test_all_schemes_parallel, AllData};
 use rust_utils_tools::{test_width, FileResult};
-use tracing::info_span;
+use tracing::{info, info_span};
 fn main() {
-    rust_utils_common::init_logger_asni();
-    let paths = ["./q5data", "./q6data"];
-    for p in paths {
-        let span = info_span!("run_main", path = p);
-        let _enter = span.enter();
-        let folder = Path::new(p);
-        let q2: BTreeMap<String, Vec<BlockQ2K>> = bincode::deserialize_from(BufReader::new(
-            File::open(folder.join("ALL_DATA_Q2.bin")).unwrap(),
-        ))
-        .unwrap();
-        let q3: BTreeMap<String, Vec<BlockQ3K>> = bincode::deserialize_from(BufReader::new(
-            File::open(folder.join("ALL_DATA_Q3.bin")).unwrap(),
-        ))
-        .unwrap();
-        let q4: BTreeMap<String, Vec<BlockQ4K>> = bincode::deserialize_from(BufReader::new(
-            File::open(folder.join("ALL_DATA_Q4.bin")).unwrap(),
-        ))
-        .unwrap();
-        let q5: BTreeMap<String, Vec<BlockQ5K>> = bincode::deserialize_from(BufReader::new(
-            File::open(folder.join("ALL_DATA_Q5.bin")).unwrap(),
-        ))
-        .unwrap();
-        let q6: BTreeMap<String, Vec<BlockQ6K>> = bincode::deserialize_from(BufReader::new(
-            File::open(folder.join("ALL_DATA_Q6.bin")).unwrap(),
-        ))
-        .unwrap();
-        let q8: BTreeMap<String, Vec<BlockQ8K>> = bincode::deserialize_from(BufReader::new(
-            File::open(folder.join("ALL_DATA_Q8.bin")).unwrap(),
-        ))
-        .unwrap();
-        let registrys: Vec<MulMatRegister> = bincode::deserialize_from(BufReader::new(
-            File::open(folder.join("mul_mat_register.bin")).unwrap(),
-        ))
-        .unwrap();
-        let all_data = AllData {
-            q2,
-            q3,
-            q4,
-            q5,
-            q6,
-            q8,
-            mul_mat_register: registrys,
-        };
+    let current_time = std::time::SystemTime::now();
+    let next_step = |all_data: &AllData, path: &Path| {
         let all_result = test_all_schemes_parallel!(
             (test_width,all_data);
             (
@@ -79,9 +35,9 @@ fn main() {
             "all_shift_minus_nosort",
         ];
         for (result, file_name) in all_result.into_iter().zip(file_names) {
-            let file_path = Path::new(p).join(file_name).with_extension("bin");
+            let file_path = path.join(file_name).with_extension("bin");
             let file_result = FileResult {
-                file_path: Path::new(p).to_owned(),
+                file_path: path.to_owned(),
                 results: result,
             };
             bincode::serialize_into(
@@ -90,7 +46,15 @@ fn main() {
             )
             .unwrap();
         }
-    }
+    };
+
+    run_all_data(next_step);
+    let eclapsed = current_time.elapsed().unwrap();
+    info!("eclapsed: {:?}", eclapsed.as_secs());
+    File::create("eclapsed_test_all.txt")
+        .unwrap()
+        .write_all(format!("{:?}", eclapsed.as_secs()).as_bytes())
+        .unwrap();
 }
 
 #[cfg(test)]
