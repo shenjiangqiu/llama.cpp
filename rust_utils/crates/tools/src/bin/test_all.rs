@@ -51,10 +51,8 @@ fn main() {
     run_all_data(next_step);
     let eclapsed = current_time.elapsed().unwrap();
     info!("eclapsed: {:?}", eclapsed.as_secs());
-    File::create("eclapsed_test_all.txt")
-        .unwrap()
-        .write_all(format!("{:?}", eclapsed.as_secs()).as_bytes())
-        .unwrap();
+    let mut file = File::create("eclapsed_test_all.txt").unwrap();
+    write!(file, "eclapsed: {:?}", eclapsed.as_secs()).unwrap();
 }
 
 #[cfg(test)]

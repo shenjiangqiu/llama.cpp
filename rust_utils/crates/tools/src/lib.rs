@@ -30,6 +30,16 @@ use tracing::{error, info, info_span};
 
 use rust_utils_common::transform::sorted_map;
 
+/// run single config
+/// ## example
+/// ```ignore
+/// test_all!(
+///     test_width,all_data;
+///     DefaultTranslator,DefaultTransform,NoSortMap;
+///     128, 256, 512, 1024
+/// )
+///
+/// ```
 #[macro_export]
 macro_rules! test_all {
     ($test_fn:ident,$all_data:ident;$translate_mapping:ty,$transform_mapping:ty,$sort_mapping:ty;$($size:literal),* $(,)? $(;)?) => {
@@ -49,6 +59,23 @@ macro_rules! test_all {
             test_all!($test_fn,$all_data;$translate_mapping,$transform_mapping,$sort_mapping;$($size),*)
         }
 }
+/// run all configure in serial
+/// ## example
+/// ```ignore
+/// test_all_schemes!(
+///     (test_width,all_data);
+///     (
+///         (DefaultTranslator,DefaultTransform,NoSortMap),
+///         (DefaultTranslator,DefaultTransform,SortedMap),
+///         (DefaultTranslator,ShiftMap,NoSortMap),
+///         (DefaultTranslator,ShiftMap,SortedMap),
+///         (DefaultTranslator,(ShiftMap,MinusMap),SortedMap),
+///         (DefaultTranslator,(ShiftMap,MinusMap),NoSortMap),
+///     );
+///     (128, 256, 512, 1024)
+/// )
+///
+/// ```
 #[macro_export]
 macro_rules! test_all_schemes {
     (
@@ -60,7 +87,7 @@ macro_rules! test_all_schemes {
             let mut all_results = vec![];
             $(
                 let config = stringify!($part2);
-                let _r=test_all!($part_1;$part2;$part3);
+                let _r=rust_utils_tools::test_all!($part_1;$part2;$part3);
                 all_results.push((config,_r));
             )*
             all_results
@@ -68,6 +95,23 @@ macro_rules! test_all_schemes {
     };
 }
 
+/// run all configures in parallel
+/// ## example
+/// ```ignore
+/// test_all_schemes_parallel!(
+///     (test_width,all_data);
+///     (
+///         (DefaultTranslator,DefaultTransform,NoSortMap),
+///         (DefaultTranslator,DefaultTransform,SortedMap),
+///         (DefaultTranslator,ShiftMap,NoSortMap),
+///         (DefaultTranslator,ShiftMap,SortedMap),
+///         (DefaultTranslator,(ShiftMap,MinusMap),SortedMap),
+///         (DefaultTranslator,(ShiftMap,MinusMap),NoSortMap),
+///     );
+///     (128, 256, 512, 1024)
+/// )
+///
+/// ```
 #[macro_export]
 macro_rules! test_all_schemes_parallel {
     (
@@ -84,7 +128,7 @@ macro_rules! test_all_schemes_parallel {
                     let config = stringify!($part2);
                     let span = info_span!("config",config = config);
                     let _enter = span.enter();
-                    let r=test_all!($part_1;$part2;$part3);
+                    let r=rust_utils_tools::test_all!($part_1;$part2;$part3);
                     r
                 };
                 all_execut_fn.push(Box::new(_fn));
@@ -104,6 +148,48 @@ pub struct AllData {
     pub q6: BTreeMap<String, Vec<BlockQ6K>>,
     pub q8: BTreeMap<String, Vec<BlockQ8K>>,
     pub mul_mat_register: Vec<MulMatRegister>,
+}
+impl AllData {
+    pub fn read_from_folder(path: &Path) -> Self {
+        let q2: BTreeMap<String, Vec<BlockQ2K>> = bincode::deserialize_from(BufReader::new(
+            File::open(path.join("ALL_DATA_Q2.bin")).unwrap(),
+        ))
+        .unwrap();
+        let q3: BTreeMap<String, Vec<BlockQ3K>> = bincode::deserialize_from(BufReader::new(
+            File::open(path.join("ALL_DATA_Q3.bin")).unwrap(),
+        ))
+        .unwrap();
+        let q4: BTreeMap<String, Vec<BlockQ4K>> = bincode::deserialize_from(BufReader::new(
+            File::open(path.join("ALL_DATA_Q4.bin")).unwrap(),
+        ))
+        .unwrap();
+        let q5: BTreeMap<String, Vec<BlockQ5K>> = bincode::deserialize_from(BufReader::new(
+            File::open(path.join("ALL_DATA_Q5.bin")).unwrap(),
+        ))
+        .unwrap();
+        let q6: BTreeMap<String, Vec<BlockQ6K>> = bincode::deserialize_from(BufReader::new(
+            File::open(path.join("ALL_DATA_Q6.bin")).unwrap(),
+        ))
+        .unwrap();
+        let q8: BTreeMap<String, Vec<BlockQ8K>> = bincode::deserialize_from(BufReader::new(
+            File::open(path.join("ALL_DATA_Q8.bin")).unwrap(),
+        ))
+        .unwrap();
+        let registrys: Vec<MulMatRegister> = bincode::deserialize_from(BufReader::new(
+            File::open(path.join("mul_mat_register.bin")).unwrap(),
+        ))
+        .unwrap();
+        let all_data = AllData {
+            q2,
+            q3,
+            q4,
+            q5,
+            q6,
+            q8,
+            mul_mat_register: registrys,
+        };
+        all_data
+    }
 }
 
 impl AllData {
@@ -177,47 +263,12 @@ pub fn run_all_data(mut next_step: impl FnMut(&AllData, &Path)) {
         let span = info_span!("run_main", path = p);
         let _enter = span.enter();
         let folder = Path::new(p);
-        let q2: BTreeMap<String, Vec<BlockQ2K>> = bincode::deserialize_from(BufReader::new(
-            File::open(folder.join("ALL_DATA_Q2.bin")).unwrap(),
-        ))
-        .unwrap();
-        let q3: BTreeMap<String, Vec<BlockQ3K>> = bincode::deserialize_from(BufReader::new(
-            File::open(folder.join("ALL_DATA_Q3.bin")).unwrap(),
-        ))
-        .unwrap();
-        let q4: BTreeMap<String, Vec<BlockQ4K>> = bincode::deserialize_from(BufReader::new(
-            File::open(folder.join("ALL_DATA_Q4.bin")).unwrap(),
-        ))
-        .unwrap();
-        let q5: BTreeMap<String, Vec<BlockQ5K>> = bincode::deserialize_from(BufReader::new(
-            File::open(folder.join("ALL_DATA_Q5.bin")).unwrap(),
-        ))
-        .unwrap();
-        let q6: BTreeMap<String, Vec<BlockQ6K>> = bincode::deserialize_from(BufReader::new(
-            File::open(folder.join("ALL_DATA_Q6.bin")).unwrap(),
-        ))
-        .unwrap();
-        let q8: BTreeMap<String, Vec<BlockQ8K>> = bincode::deserialize_from(BufReader::new(
-            File::open(folder.join("ALL_DATA_Q8.bin")).unwrap(),
-        ))
-        .unwrap();
-        let registrys: Vec<MulMatRegister> = bincode::deserialize_from(BufReader::new(
-            File::open(folder.join("mul_mat_register.bin")).unwrap(),
-        ))
-        .unwrap();
-        let all_data = AllData {
-            q2,
-            q3,
-            q4,
-            q5,
-            q6,
-            q8,
-            mul_mat_register: registrys,
-        };
+        let all_data = AllData::read_from_folder(folder);
         next_step(&all_data, folder);
     }
 }
 
+/// test a single configure
 pub fn run_main<
     TransLate: TranslateMapping,
     TransForm: TransformMapping,
