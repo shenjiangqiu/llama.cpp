@@ -65,6 +65,10 @@ typedef struct BlockQ8K {
   int16_t bsum[16];
 } BlockQ8K;
 
+typedef struct AttentionContext {
+
+} AttentionContext;
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
@@ -159,6 +163,8 @@ void print_vec_u8(const uint8_t (*array)[256]);
  * - 2: shift and minus
  */
 void update_data(uint8_t (*array)[256], uint8_t policy);
+
+void save_attention_result(struct AttentionContext *context);
 
 #ifdef __cplusplus
 } // extern "C"

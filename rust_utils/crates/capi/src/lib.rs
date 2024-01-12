@@ -258,6 +258,11 @@ pub extern "C" fn update_data(array: &mut [u8; 256], policy: u8) {
     }
 }
 
+#[repr(C)]
+pub struct AttentionContext {}
+#[no_mangle]
+pub extern "C" fn save_attention_result(context: &mut AttentionContext,seq_num:usize,block_num:usize,data:*const f32) {}
+
 #[cfg(test)]
 mod tests {
     #[test]
